@@ -58,6 +58,8 @@ jobs:
   build-macos:
     name: macOS — ${{ matrix.target }}
     runs-on: macos-14           # Apple Silicon runner (M1) — free on GitHub Actions
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -120,7 +122,6 @@ jobs:
           files: |
             ${{ env.ASSET }}
             ${{ env.ASSET_SHA }}
-          generate_release_notes: true   # auto-generates changelog from commit messages
 
 
   # ── Linux ────────────────────────────────────────────────────────────────────
@@ -142,6 +143,8 @@ jobs:
   build-linux:
     name: Linux — ${{ matrix.target }}
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -204,7 +207,6 @@ jobs:
           files: |
             ${{ env.ASSET }}
             ${{ env.ASSET_SHA }}
-          generate_release_notes: true
 
 
   # ── Windows ──────────────────────────────────────────────────────────────────
@@ -230,6 +232,8 @@ jobs:
   build-windows:
     name: Windows — ${{ matrix.target }}
     runs-on: windows-latest
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -277,7 +281,6 @@ jobs:
           files: |
             ${{ env.ASSET }}
             ${{ env.ASSET_SHA }}
-          generate_release_notes: true
 
 
   # ── Merge all checksums into one checksums.txt ───────────────────────────────
