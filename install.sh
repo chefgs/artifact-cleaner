@@ -90,7 +90,9 @@ resolve_version() {
   fi
 
   if [ -z "$version" ]; then
-    error "Could not determine latest version. Set VERSION=vX.X.X to install a specific version."
+    error "Could not determine latest version — no releases found for $REPO.
+  Create a release first (push a git tag like 'v0.1.0', or trigger the Release workflow manually from GitHub Actions),
+  or set VERSION=vX.X.X to install a specific version once a release exists."
   fi
 
   echo "$version"
