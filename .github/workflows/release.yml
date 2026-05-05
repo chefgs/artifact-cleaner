@@ -48,6 +48,25 @@ env:
 
 jobs:
 
+  # ── Version validation (workflow_dispatch only) ───────────────────────────────
+  # Enforces that the manually entered version matches vMAJOR.MINOR.PATCH so that
+  # tag names, asset filenames and install-script URLs remain consistent.
+  # Skipped automatically on push-tag triggers (job has no effect there).
+  # ─────────────────────────────────────────────────────────────────────────────
+  validate-version:
+    name: Validate version input
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check version format (must match v<major>.<minor>.<patch>)
+        run: |
+          if [[ ! "${{ github.event.inputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid version '${{ github.event.inputs.version }}'. \
+          Expected format: v<major>.<minor>.<patch>  (e.g. v1.0.0)"
+            exit 1
+          fi
+          echo "Version '${{ github.event.inputs.version }}' is valid."
+
   # ── macOS ────────────────────────────────────────────────────────────────────
   # WHY macOS runner for macOS targets?
   # Apple requires binaries to be compiled ON macOS (or with Apple's SDK).
@@ -57,6 +76,8 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-macos:
     name: macOS — ${{ matrix.target }}
+    needs: [validate-version]
+    if: success() || needs.validate-version.result == 'skipped'
     runs-on: macos-14           # Apple Silicon runner (M1) — free on GitHub Actions
     permissions:
       contents: write
@@ -143,6 +164,8 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-linux:
     name: Linux — ${{ matrix.target }}
+    needs: [validate-version]
+    if: success() || needs.validate-version.result == 'skipped'
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -233,6 +256,8 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-windows:
     name: Windows — ${{ matrix.target }}
+    needs: [validate-version]
+    if: success() || needs.validate-version.result == 'skipped'
     runs-on: windows-latest
     permissions:
       contents: write
