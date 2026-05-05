@@ -1,11 +1,11 @@
 // scanner.rs — finds stale artifact folders in a workspace
 
-use std::path::{Path, PathBuf};
-use std::time::{SystemTime, Duration};
-use std::fs;
-use walkdir::WalkDir;
 use chrono::{DateTime, Local};
 use humansize::{format_size, DECIMAL};
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
+use walkdir::WalkDir;
 
 // ─── RUST LESSON — Structs ────────────────────────────────────────────────────
 // A struct groups related data — like a TypeScript interface but with ownership.
@@ -30,12 +30,15 @@ pub struct ArtifactFolder {
 // `const` is evaluated at compile time.
 // `&[&str]` is a slice (a view into a fixed array) of borrowed string refs.
 // ─────────────────────────────────────────────────────────────────────────────
-pub const DEFAULT_ARTIFACTS: &[&str] = &[
-    "node_modules", ".next", "dist", "build", ".terraform",
-];
+pub const DEFAULT_ARTIFACTS: &[&str] = &["node_modules", ".next", "dist", "build", ".terraform"];
 
 const EXCLUDED_PATHS: &[&str] = &[
-    "/.venv/", "/venv/", "/env/", "/lib/python", "/site-packages/", "/.git/",
+    "/.venv/",
+    "/venv/",
+    "/env/",
+    "/lib/python",
+    "/site-packages/",
+    "/.git/",
 ];
 
 // ─── RUST LESSON — Functions ──────────────────────────────────────────────────
@@ -46,11 +49,7 @@ const EXCLUDED_PATHS: &[&str] = &[
 // `-> Vec<ArtifactFolder>` = returns a heap-allocated list of structs.
 // The last expression in a function is the return value (no `return` keyword needed).
 // ─────────────────────────────────────────────────────────────────────────────
-pub fn scan_workspace(
-    path: &Path,
-    months: u32,
-    artifact_types: &[String],
-) -> Vec<ArtifactFolder> {
+pub fn scan_workspace(path: &Path, months: u32, artifact_types: &[String]) -> Vec<ArtifactFolder> {
     // SystemTime::now() - Duration = cutoff timestamp.
     // checked_sub returns Option<SystemTime> (None if it would underflow).
     // unwrap_or gives a safe fallback value when the Option is None.
@@ -126,7 +125,10 @@ pub fn scan_workspace(
                 .parent()
                 .map(|p| p.to_string_lossy())
                 .unwrap_or_default();
-            if artifact_types.iter().any(|t| parent_str.contains(t.as_str())) {
+            if artifact_types
+                .iter()
+                .any(|t| parent_str.contains(t.as_str()))
+            {
                 continue;
             }
 
@@ -156,8 +158,7 @@ pub fn scan_workspace(
     }
 
     // Sort by size descending — biggest space wasters first
-    // Closures |a, b| compare b to a (reversed) for descending order
-    results.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes));
+    results.sort_by_key(|b| std::cmp::Reverse(b.size_bytes));
     results
 }
 

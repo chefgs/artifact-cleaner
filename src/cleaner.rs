@@ -1,8 +1,8 @@
 // cleaner.rs — deletes artifact folders and reports results
 
-use std::path::PathBuf;
-use std::fs;
 use humansize::{format_size, DECIMAL};
+use std::fs;
+use std::path::PathBuf;
 
 // ─── RUST LESSON — Structs with owned data ───────────────────────────────────
 // DeleteResult owns all its data — the Vec<String> for failed paths.
@@ -14,7 +14,7 @@ use humansize::{format_size, DECIMAL};
 pub struct DeleteResult {
     pub deleted: u32,
     pub failed: Vec<String>,
-    pub total_freed_bytes: u64,  // kept for programmatic use (future GUI/JSON output)
+    pub total_freed_bytes: u64, // kept for programmatic use (future GUI/JSON output)
     pub total_freed_human: String,
 }
 
