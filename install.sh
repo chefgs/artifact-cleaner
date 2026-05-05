@@ -27,6 +27,7 @@ REPO="chefgs/artifact-cleaner"
 BINARY="artifact-cleaner"
 VERSION="${VERSION:-}"        # empty = fetch latest from GitHub API
 NO_VERIFY="${NO_VERIFY:-0}"  # set to 1 to skip checksum (not recommended)
+ARTIFACT_CLEANER_INSTALL_TMP_DIR=""
 
 # ── Colours for terminal output ───────────────────────────────────────────────
 # tput checks if the terminal supports colour — falls back to no colour if not
@@ -38,9 +39,9 @@ else
 fi
 
 # ── Helper functions ──────────────────────────────────────────────────────────
-info()    { echo "${CYAN}${BOLD}info${RESET}  $*"; }
-success() { echo "${GREEN}${BOLD} ok ${RESET}  $*"; }
-warn()    { echo "${YELLOW}${BOLD}warn${RESET}  $*"; }
+info()    { echo "${CYAN}${BOLD}info${RESET}  $*" >&2; }
+success() { echo "${GREEN}${BOLD} ok ${RESET}  $*" >&2; }
+warn()    { echo "${YELLOW}${BOLD}warn${RESET}  $*" >&2; }
 error()   { echo "${RED}${BOLD}err ${RESET}  $*" >&2; exit 1; }
 
 # ── Step 1 — Detect OS ────────────────────────────────────────────────────────
@@ -227,7 +228,8 @@ main() {
   # Create a temporary working directory — cleaned up automatically on exit
   # trap ensures cleanup even if the script fails mid-way
   tmp_dir=$(mktemp -d)
-  trap 'rm -rf "$tmp_dir"' EXIT
+  ARTIFACT_CLEANER_INSTALL_TMP_DIR="$tmp_dir"
+  trap 'rm -rf "$ARTIFACT_CLEANER_INSTALL_TMP_DIR"' EXIT
 
   archive_path="$tmp_dir/$archive_name"
   checksums_path="$tmp_dir/checksums.txt"
