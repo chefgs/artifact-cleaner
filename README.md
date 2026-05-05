@@ -1,8 +1,24 @@
-# artifact-cleaner
+# Artifact Cleaner
 
-A fast, cross-platform CLI tool to find and delete stale build artifacts — `node_modules`, `.next`, `dist`, `build`, `.terraform` — from developer workspaces.
+[![CI](https://github.com/chefgs/artifact-cleaner/actions/workflows/ci.yml/badge.svg)](https://github.com/chefgs/artifact-cleaner/actions/workflows/ci.yml)
+[![Release](https://github.com/chefgs/artifact-cleaner/actions/workflows/release.yml/badge.svg)](https://github.com/chefgs/artifact-cleaner/actions/workflows/release.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Rust 2024](https://img.shields.io/badge/Rust-2024-orange.svg)](https://www.rust-lang.org/)
+[![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
+
+A Rust-based CLI tool for scanning and cleaning common development artifacts such as `node_modules`, `.next`, `dist`, `build`, `target`, `.terraform`, and cache folders.
+
+This project is also used as a practical Rust learning project for Go and Python developers.
 
 Built in Rust. Single binary. No dependencies.
+
+![Artifact Cleaner CLI cleaning development artifacts and reclaiming storage](assets/repo-image.png)
+
+## Safe by default
+
+The tool always shows what it found before deleting anything. By default, destructive cleanup requires an interactive confirmation prompt, and `--dry-run` previews what would be deleted without removing files.
+
+For scripts and CI, deletion without a prompt requires the explicit `--yes` flag.
 
 ## Install
 
@@ -85,6 +101,33 @@ artifact-cleaner ~/Documents/github --yes
 # Target specific artifact types only
 artifact-cleaner ~/Documents/github --types node_modules,.next
 ```
+
+## Benchmark
+
+Build an optimized binary first:
+
+```bash
+cargo build --release
+```
+
+Then benchmark a dry run with `hyperfine`:
+
+```bash
+hyperfine \
+  './target/release/artifact-cleaner --path ~/projects --dry-run'
+```
+
+## Learn Rust with this project
+
+This repo is designed to help Go and Python developers understand Rust through a real DevOps CLI project.
+
+Start here:
+
+1. Read `src/main.rs`
+2. Read `src/scanner.rs`
+3. Read `src/cleaner.rs`
+4. Read `src/display.rs`
+5. Then open `RUST_LEARNING.md`
 
 ## Options
 
