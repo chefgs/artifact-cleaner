@@ -68,35 +68,112 @@ detect_arch() {
   esac
 }
 
+# Fetch text content from a URL.
+fetch_text() {
+  local url="$1"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsSL "$url"
+  elif command -v wget >/dev/null 2>&1; then
+    wget -qO- "$url"
+  else
+    error "Neither curl nor wget found. Please install one and retry."
+  fi
+}
+
+# Check whether a URL exists without downloading the full file.
+url_exists() {
+  local url="$1"
+
+  if command -v curl >/dev/null 2>&1; then
+    curl -fsIL "$url" >/dev/null 2>&1
+  elif command -v wget >/dev/null 2>&1; then
+    wget -q --spider "$url" >/dev/null 2>&1
+  else
+    error "Neither curl nor wget found. Please install one and retry."
+  fi
+}
+
+ensure_release_asset_exists() {
+  local url="$1"
+  local asset="$2"
+  local version="$3"
+
+  if ! url_exists "$url"; then
+    error "Release asset not found: $asset
+
+  URL: $url
+
+  The GitHub release '$version' exists, but this asset is missing.
+  If you just created the tag or release, wait for the Release workflow to finish.
+  Otherwise, check the failed workflow run and re-run it for tag '$version'."
+  fi
+}
+
+checksum_asset_for() {
+  local base_url="$1"
+  local archive_name="$2"
+
+  if url_exists "$base_url/checksums.txt"; then
+    echo "checksums.txt"
+    return
+  fi
+
+  if url_exists "$base_url/$archive_name.sha256"; then
+    echo "$archive_name.sha256"
+    return
+  fi
+
+  return 0
+}
+
+release_has_checksum() {
+  local base_url="$1"
+  local archive_name="$2"
+
+  [ "$NO_VERIFY" = "1" ] ||
+    url_exists "$base_url/checksums.txt" ||
+    url_exists "$base_url/$archive_name.sha256"
+}
+
 # ── Step 3 — Resolve the version to install ───────────────────────────────────
-# If VERSION is not set, query the GitHub API for the latest release tag.
-# The API returns JSON — we extract the tag_name with grep + sed (no jq needed).
+# If VERSION is not set, query recent GitHub releases and choose the newest one
+# that actually has the archive for this platform plus a usable checksum. This
+# avoids installing from a newly-created release whose assets are not uploaded yet.
 resolve_version() {
+  local target="$1"
+
   if [ -n "$VERSION" ]; then
     echo "$VERSION"
     return
   fi
 
-  info "Fetching latest release version..."
+  info "Finding latest release with $target binaries..."
 
-  local api_url="https://api.github.com/repos/$REPO/releases/latest"
-  local version
+  local api_url="https://api.github.com/repos/$REPO/releases?per_page=20"
+  local releases
 
-  if command -v curl >/dev/null 2>&1; then
-    version=$(curl -fsSL "$api_url" | grep '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
-  elif command -v wget >/dev/null 2>&1; then
-    version=$(wget -qO- "$api_url" | grep '"tag_name"' | sed -E 's/.*"tag_name": *"([^"]+)".*/\1/')
-  else
-    error "Neither curl nor wget found. Please install one and retry."
-  fi
+  releases=$(fetch_text "$api_url")
 
-  if [ -z "$version" ]; then
-    error "Could not determine latest version — no releases found for $REPO.
-  Create a release first (push a git tag like 'v0.1.0', or trigger the Release workflow manually from GitHub Actions),
-  or set VERSION=vX.X.X to install a specific version once a release exists."
-  fi
+  local candidate_version archive_name base_url
+  while IFS= read -r candidate_version; do
+    [ -n "$candidate_version" ] || continue
 
-  echo "$version"
+    archive_name="${BINARY}-${candidate_version}-${target}.tar.gz"
+    base_url="https://github.com/$REPO/releases/download/$candidate_version"
+
+    if url_exists "$base_url/$archive_name" && release_has_checksum "$base_url" "$archive_name"; then
+      echo "$candidate_version"
+      return
+    fi
+
+    warn "Skipping $candidate_version: missing $archive_name, checksums.txt, or $archive_name.sha256"
+  done < <(printf '%s\n' "$releases" | grep -o '"tag_name": *"[^"]*"' | sed -E 's/"tag_name": *"([^"]+)"/\1/')
+
+  error "Could not find an installable release for $target.
+
+  Create a release by pushing a tag like 'v0.4.0' and wait for the Release workflow to upload assets,
+  or set VERSION=vX.X.X to install a specific version once that release has binaries."
 }
 
 # ── Step 4 — Download a file ──────────────────────────────────────────────────
@@ -116,7 +193,7 @@ download() {
 }
 
 # ── Step 5 — Verify SHA256 checksum ──────────────────────────────────────────
-# checksums.txt format (same as sha256sum output):
+# checksums.txt and individual .sha256 files use sha256sum-compatible format:
 #   <hash>  <filename>
 #
 # We grep for our archive filename, extract the expected hash,
@@ -209,14 +286,15 @@ main() {
   echo ""
 
   local os arch version target archive_name base_url
-  local tmp_dir archive_path checksums_path install_dir binary_path
+  local tmp_dir archive_path checksums_path checksum_asset install_dir binary_path
 
   os=$(detect_os)
   arch=$(detect_arch)
-  version=$(resolve_version)
 
-  # Compose the target triple and archive filename
+  # Compose the target triple before resolving the version so the installer can
+  # skip releases that do not have this platform's archive yet.
   target="${arch}-${os}"
+  version=$(resolve_version "$target")
   archive_name="${BINARY}-${version}-${target}.tar.gz"
   base_url="https://github.com/$REPO/releases/download/$version"
 
@@ -234,13 +312,36 @@ main() {
   archive_path="$tmp_dir/$archive_name"
   checksums_path="$tmp_dir/checksums.txt"
 
+  ensure_release_asset_exists "$base_url/$archive_name" "$archive_name" "$version"
+
+  if [ "$NO_VERIFY" != "1" ]; then
+    checksum_asset=$(checksum_asset_for "$base_url" "$archive_name")
+
+    if [ -z "$checksum_asset" ]; then
+      error "Checksum not found for $archive_name
+
+  Tried:
+    $base_url/checksums.txt
+    $base_url/$archive_name.sha256
+
+  The release asset exists, but neither checksum file is available.
+  If the Release workflow is still running, wait for it to finish.
+  Otherwise, check and re-run the checksum or release workflow for tag '$version'."
+    fi
+  else
+    checksum_asset=""
+  fi
+
   # Download the binary archive
-  info "Downloading $archive_name..."
+  info "Downloading $base_url/$archive_name..."
   download "$base_url/$archive_name" "$archive_path"
 
-  # Download the checksums file
-  info "Downloading checksums.txt..."
-  download "$base_url/checksums.txt" "$checksums_path"
+  # Download the checksum file. Prefer checksums.txt when it exists, but accept
+  # the archive-specific .sha256 file produced by the platform build job.
+  if [ "$NO_VERIFY" != "1" ]; then
+    info "Downloading $base_url/$checksum_asset..."
+    download "$base_url/$checksum_asset" "$checksums_path"
+  fi
 
   # Verify integrity
   verify_checksum "$archive_path" "$checksums_path"
