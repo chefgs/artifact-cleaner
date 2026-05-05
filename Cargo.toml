@@ -1,6 +1,6 @@
 [package]
 name = "artifact-cleaner"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 description = "A CLI tool to find and remove stale build artifacts (node_modules, .next, dist, build, .terraform)"
 authors = ["Saravanan G"]
