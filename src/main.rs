@@ -31,7 +31,7 @@ use std::path::PathBuf;
 #[command(
     name = "artifact-cleaner",
     about = "Find and remove stale build artifacts to reclaim disk space",
-    version = "0.1.0",
+    version = env!("CARGO_PKG_VERSION"),
     long_about = "
 Scans a workspace directory for stale build artifact folders
 (node_modules, .next, dist, build, .terraform) and removes them
