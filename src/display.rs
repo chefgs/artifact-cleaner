@@ -3,7 +3,7 @@
 use crate::cleaner::DeleteResult;
 use crate::scanner::ArtifactFolder;
 use colored::Colorize;
-use humansize::{format_size, DECIMAL};
+use humansize::{DECIMAL, format_size};
 
 // ─── RUST LESSON — `use` imports ─────────────────────────────────────────────
 // `use crate::scanner::ArtifactFolder` imports from our own scanner module.
