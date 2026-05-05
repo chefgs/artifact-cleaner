@@ -1,8 +1,8 @@
 // display.rs — terminal output formatting
 
-use colored::Colorize;
-use crate::scanner::ArtifactFolder;
 use crate::cleaner::DeleteResult;
+use crate::scanner::ArtifactFolder;
+use colored::Colorize;
 use humansize::{format_size, DECIMAL};
 
 // ─── RUST LESSON — `use` imports ─────────────────────────────────────────────
@@ -119,10 +119,10 @@ fn truncate(s: &str, max: usize) -> String {
 fn color_artifact_type(t: &str) -> colored::ColoredString {
     match t {
         "node_modules" => t.yellow(),
-        ".next"        => t.cyan(),
-        ".terraform"   => t.magenta(),
-        "dist"         => t.blue(),
-        "build"        => t.bright_blue(),
-        _              => t.normal(),
+        ".next" => t.cyan(),
+        ".terraform" => t.magenta(),
+        "dist" => t.blue(),
+        "build" => t.bright_blue(),
+        _ => t.normal(),
     }
 }

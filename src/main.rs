@@ -5,15 +5,15 @@
 // `mod scanner;` tells the compiler: "find src/scanner.rs and compile it."
 // `use` then imports specific items from those modules into scope.
 // ─────────────────────────────────────────────────────────────────────────────
-mod scanner;
 mod cleaner;
 mod display;
+mod scanner;
 
-use std::path::PathBuf;
 use clap::Parser;
 use colored::Colorize;
 use dialoguer::Confirm;
 use indicatif::{ProgressBar, ProgressStyle};
+use std::path::PathBuf;
 
 // ─── RUST LESSON — clap #[derive(Parser)] ────────────────────────────────────
 // clap uses Rust's derive macro system to generate CLI argument parsing
@@ -87,12 +87,20 @@ fn main() {
     // canonicalize() follows symlinks and resolves relative paths.
     // unwrap_or_else runs only if canonicalize() returns Err — graceful fallback.
     let workspace = cli.path.canonicalize().unwrap_or_else(|_| {
-        eprintln!("{} Path not found: {}", "Error:".red().bold(), cli.path.display());
+        eprintln!(
+            "{} Path not found: {}",
+            "Error:".red().bold(),
+            cli.path.display()
+        );
         std::process::exit(1);
     });
 
     if !workspace.is_dir() {
-        eprintln!("{} Not a directory: {}", "Error:".red().bold(), workspace.display());
+        eprintln!(
+            "{} Not a directory: {}",
+            "Error:".red().bold(),
+            workspace.display()
+        );
         std::process::exit(1);
     }
 
@@ -122,7 +130,11 @@ fn main() {
 
     if artifacts.is_empty() {
         println!();
-        println!("  {} No stale artifacts found in {}", "✓".green().bold(), workspace.display());
+        println!(
+            "  {} No stale artifacts found in {}",
+            "✓".green().bold(),
+            workspace.display()
+        );
         println!();
         return;
     }
@@ -157,15 +169,16 @@ fn main() {
     // .interact() blocks until the user answers — returns Result<bool>.
     // unwrap_or(false) treats any error (e.g. non-interactive terminal) as No.
     // ─────────────────────────────────────────────────────────────────────────
-    let confirmed = cli.yes || Confirm::new()
-        .with_prompt(format!(
-            "  Delete {} folders and free {}?",
-            artifacts.len(),
-            humansize::format_size(total_bytes, humansize::DECIMAL)
-        ))
-        .default(false)
-        .interact()
-        .unwrap_or(false);
+    let confirmed = cli.yes
+        || Confirm::new()
+            .with_prompt(format!(
+                "  Delete {} folders and free {}?",
+                artifacts.len(),
+                humansize::format_size(total_bytes, humansize::DECIMAL)
+            ))
+            .default(false)
+            .interact()
+            .unwrap_or(false);
 
     if !confirmed {
         println!("  {} Aborted — nothing deleted.", "✗".yellow());
