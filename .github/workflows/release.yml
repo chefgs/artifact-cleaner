@@ -1,0 +1,328 @@
+# .github/workflows/release.yml
+#
+# Cross-platform release pipeline for artifact-cleaner.
+#
+# HOW IT WORKS:
+# ─────────────
+# When you push a tag like `v1.0.0`, this workflow:
+#   1. Runs on THREE GitHub-hosted runners in parallel: macOS, Linux, Windows
+#   2. Each runner compiles for its OWN platform PLUS extra targets via cross-compilation
+#   3. Uploads every binary as a GitHub Release asset
+#
+# TRIGGER:
+#   git tag v1.0.0
+#   git push origin v1.0.0
+#   → GitHub Actions fires automatically
+#
+# TARGETS PRODUCED:
+#   macOS runner   → aarch64-apple-darwin  (Apple Silicon .tar.gz)
+#                    x86_64-apple-darwin   (Intel Mac .tar.gz)
+#   Linux runner   → x86_64-unknown-linux-musl   (Linux x64 static .tar.gz)
+#                    aarch64-unknown-linux-musl   (Linux ARM64 static .tar.gz)
+#   Windows runner → x86_64-pc-windows-msvc      (Windows x64 .zip)
+#                    aarch64-pc-windows-msvc      (Windows ARM64 .zip)
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'   # triggers on v1.0.0, v2.1.3 etc.
+
+# Cancel any in-progress run for the same tag (prevents duplicate releases)
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always   # coloured cargo output in logs
+  BINARY_NAME: artifact-cleaner
+
+jobs:
+
+  # ── macOS ────────────────────────────────────────────────────────────────────
+  # WHY macOS runner for macOS targets?
+  # Apple requires binaries to be compiled ON macOS (or with Apple's SDK).
+  # You cannot legally cross-compile macOS binaries from Linux/Windows —
+  # Apple's linker (ld64) and SDK are macOS-only.
+  # GitHub provides free macOS runners (macos-14 = Apple Silicon M1).
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-macos:
+    name: macOS — ${{ matrix.target }}
+    runs-on: macos-14           # Apple Silicon runner (M1) — free on GitHub Actions
+    strategy:
+      matrix:
+        include:
+          - target: aarch64-apple-darwin    # Apple Silicon (M1/M2/M3)
+            archive: tar.gz
+          - target: x86_64-apple-darwin     # Intel Mac (pre-2020)
+            archive: tar.gz
+
+    steps:
+      # Step 1 — Check out the repository code
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Step 2 — Install the Rust toolchain
+      # WHY: GitHub runners have Rust pre-installed but may be outdated.
+      # `dtolnay/rust-toolchain` pins to `stable` and installs the target triple.
+      # A "target triple" = <cpu>-<vendor>-<os> — tells rustc what to compile FOR.
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Step 3 — Cache compiled dependencies
+      # WHY: Rust compiles ALL dependencies from source. First build = slow (2-5 min).
+      # Subsequent builds hit this cache and take seconds.
+      # The cache key includes Cargo.lock so it invalidates when deps change.
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # Step 4 — Compile
+      # --release = optimised binary (smaller, faster) — always use for releases
+      # --target  = cross-compile to the target triple
+      # On macOS, compiling x86_64 FROM aarch64 is fully supported by Apple's toolchain.
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      # Step 5 — Package into .tar.gz and generate SHA256 checksum
+      # WHY tar.gz on macOS/Linux? Unix convention — preserves file permissions.
+      # WHY SHA256? Lets users verify the downloaded file was not tampered with
+      # or corrupted in transit. shasum is available on all macOS systems.
+      - name: Package
+        run: |
+          RELEASE_DIR="artifact-cleaner-${{ github.ref_name }}-${{ matrix.target }}"
+          mkdir -p "$RELEASE_DIR"
+          cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} "$RELEASE_DIR/"
+          cp README.md "$RELEASE_DIR/" 2>/dev/null || true
+          tar -czf "$RELEASE_DIR.tar.gz" "$RELEASE_DIR"
+          # Generate SHA256 checksum — shasum -a 256 is standard on macOS
+          shasum -a 256 "$RELEASE_DIR.tar.gz" > "$RELEASE_DIR.tar.gz.sha256"
+          echo "ASSET=$RELEASE_DIR.tar.gz" >> $GITHUB_ENV
+          echo "ASSET_SHA=$RELEASE_DIR.tar.gz.sha256" >> $GITHUB_ENV
+
+      # Step 6 — Upload archive + checksum file to GitHub Release
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.ASSET }}
+            ${{ env.ASSET_SHA }}
+          generate_release_notes: true   # auto-generates changelog from commit messages
+
+
+  # ── Linux ────────────────────────────────────────────────────────────────────
+  # WHY musl instead of glibc?
+  # The default Linux target (x86_64-unknown-linux-gnu) links against glibc.
+  # glibc is version-specific — a binary compiled on Ubuntu 24 may not run on
+  # Ubuntu 20 or Alpine Linux (which uses musl instead of glibc).
+  #
+  # musl = a lightweight, fully static C library.
+  # `-unknown-linux-musl` targets produce FULLY STATIC binaries —
+  # they have zero dynamic library dependencies and run on ANY Linux distro.
+  # This is the correct choice for distributable CLI tools.
+  #
+  # WHY `cross` for ARM64?
+  # GitHub has no native ARM64 Linux runner (as of 2025).
+  # `cross` is a Rust tool that uses Docker + QEMU to emulate ARM64 and compile.
+  # For x86_64, we compile natively — no emulation needed.
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-linux:
+    name: Linux — ${{ matrix.target }}
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-musl    # Linux x64 — native compile
+            use_cross: false
+          - target: aarch64-unknown-linux-musl   # Linux ARM64 — needs cross + Docker
+            use_cross: true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      # Install musl tools for native x86_64 build
+      # musl-tools provides the musl-gcc wrapper that Rust's linker uses
+      - name: Install musl tools (x86_64 only)
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        run: sudo apt-get install -y musl-tools
+
+      # Install `cross` for ARM64 builds
+      # `cross` wraps `cargo build` transparently — same flags, different backend
+      - name: Install cross (ARM64 only)
+        if: matrix.use_cross == true
+        run: cargo install cross --git https://github.com/cross-rs/cross
+
+      # Build — use `cross` for ARM64, plain `cargo` for x86_64
+      - name: Build
+        run: |
+          if [ "${{ matrix.use_cross }}" = "true" ]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
+          fi
+
+      - name: Package
+        run: |
+          RELEASE_DIR="artifact-cleaner-${{ github.ref_name }}-${{ matrix.target }}"
+          mkdir -p "$RELEASE_DIR"
+          cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} "$RELEASE_DIR/"
+          cp README.md "$RELEASE_DIR/" 2>/dev/null || true
+          tar -czf "$RELEASE_DIR.tar.gz" "$RELEASE_DIR"
+          # sha256sum is standard on Linux (GNU coreutils)
+          sha256sum "$RELEASE_DIR.tar.gz" > "$RELEASE_DIR.tar.gz.sha256"
+          echo "ASSET=$RELEASE_DIR.tar.gz" >> $GITHUB_ENV
+          echo "ASSET_SHA=$RELEASE_DIR.tar.gz.sha256" >> $GITHUB_ENV
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.ASSET }}
+            ${{ env.ASSET_SHA }}
+          generate_release_notes: true
+
+
+  # ── Windows ──────────────────────────────────────────────────────────────────
+  # WHY Windows runner for Windows targets?
+  # The MSVC toolchain (Microsoft Visual C++) is required to compile for
+  # `x86_64-pc-windows-msvc`. It can only run on Windows — it needs
+  # Visual Studio's linker (link.exe) and Windows SDK headers.
+  #
+  # WHY MSVC and not GNU (MinGW)?
+  # `x86_64-pc-windows-gnu` uses MinGW — an open-source Windows toolchain.
+  # It works but produces binaries with subtle compatibility issues.
+  # MSVC is the native Windows toolchain — better debugger support, better
+  # compatibility with Windows system APIs, and what Microsoft recommends.
+  #
+  # WHY .zip on Windows?
+  # Windows users don't have `tar` by default (pre-Windows 10).
+  # .zip is the universal Windows archive format. PowerShell can handle it natively.
+  #
+  # WHY ARM64 Windows?
+  # Surface Pro X, Snapdragon-based laptops, and Windows on ARM (QEMU/Parallels
+  # on Apple Silicon Macs). Growing market, worth supporting.
+  # ─────────────────────────────────────────────────────────────────────────────
+  build-windows:
+    name: Windows — ${{ matrix.target }}
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - target: x86_64-pc-windows-msvc    # Windows x64 (most common)
+          - target: aarch64-pc-windows-msvc   # Windows ARM64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build
+        run: cargo build --release --target ${{ matrix.target }}
+
+      # Package into .zip and generate SHA256 checksum using PowerShell.
+      # WHY PowerShell? It's available on all Windows runners.
+      # Get-FileHash is PowerShell's built-in SHA256 tool — no extra installs needed.
+      - name: Package
+        shell: pwsh
+        run: |
+          $RELEASE_DIR = "artifact-cleaner-${{ github.ref_name }}-${{ matrix.target }}"
+          New-Item -ItemType Directory -Path $RELEASE_DIR
+          Copy-Item "target\${{ matrix.target }}\release\${{ env.BINARY_NAME }}.exe" $RELEASE_DIR\
+          if (Test-Path "README.md") { Copy-Item "README.md" $RELEASE_DIR\ }
+          Compress-Archive -Path $RELEASE_DIR -DestinationPath "$RELEASE_DIR.zip"
+          # Generate SHA256 — output format matches sha256sum on Linux for consistency
+          $hash = (Get-FileHash "$RELEASE_DIR.zip" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $RELEASE_DIR.zip" | Out-File -Encoding ascii "$RELEASE_DIR.zip.sha256"
+          echo "ASSET=$RELEASE_DIR.zip" | Out-File -Append $env:GITHUB_ENV
+          echo "ASSET_SHA=$RELEASE_DIR.zip.sha256" | Out-File -Append $env:GITHUB_ENV
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.ASSET }}
+            ${{ env.ASSET_SHA }}
+          generate_release_notes: true
+
+
+  # ── Merge all checksums into one checksums.txt ───────────────────────────────
+  # Runs AFTER all build jobs complete.
+  # Downloads every individual .sha256 file, merges them into one checksums.txt,
+  # and uploads that single file to the release.
+  #
+  # WHY a combined checksums.txt?
+  # Users and install scripts can download ONE file to verify ANY binary.
+  # This is the standard pattern used by Go, Terraform, and most major CLI tools.
+  # Format matches sha256sum --check on Linux and shasum --check on macOS.
+  # ─────────────────────────────────────────────────────────────────────────────
+  checksums:
+    name: Generate checksums.txt
+    needs: [build-macos, build-linux, build-windows]
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write   # needed to upload to the release
+    steps:
+      - name: Download all .sha256 files from the release
+        uses: robinraju/release-downloader@v1
+        with:
+          tag: ${{ github.ref_name }}
+          fileName: "*.sha256"
+          out-file-path: checksums
+
+      - name: Merge into checksums.txt
+        run: |
+          # Concatenate all individual .sha256 files into one checksums.txt
+          # Each line is:  <sha256hash>  <filename>
+          cat checksums/*.sha256 | sort > checksums.txt
+          echo "Contents of checksums.txt:"
+          cat checksums.txt
+
+      - name: Upload checksums.txt to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: checksums.txt
+
+  # ── Gate job — confirms everything succeeded ──────────────────────────────────
+  release-complete:
+    name: Release complete
+    needs: [checksums]
+    runs-on: ubuntu-22.04
+    steps:
+      - name: All platforms built successfully
+        run: |
+          echo "✓ Release ${{ github.ref_name }} published successfully"
+          echo ""
+          echo "Binaries:"
+          echo "  artifact-cleaner-${{ github.ref_name }}-aarch64-apple-darwin.tar.gz"
+          echo "  artifact-cleaner-${{ github.ref_name }}-x86_64-apple-darwin.tar.gz"
+          echo "  artifact-cleaner-${{ github.ref_name }}-x86_64-unknown-linux-musl.tar.gz"
+          echo "  artifact-cleaner-${{ github.ref_name }}-aarch64-unknown-linux-musl.tar.gz"
+          echo "  artifact-cleaner-${{ github.ref_name }}-x86_64-pc-windows-msvc.zip"
+          echo "  artifact-cleaner-${{ github.ref_name }}-aarch64-pc-windows-msvc.zip"
+          echo ""
+          echo "Integrity:"
+          echo "  checksums.txt  (SHA256 for all 6 binaries)"

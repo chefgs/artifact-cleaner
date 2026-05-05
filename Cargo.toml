@@ -1,0 +1,43 @@
+[package]
+name = "artifact-cleaner"
+version = "0.1.0"
+edition = "2021"
+description = "A CLI tool to find and remove stale build artifacts (node_modules, .next, dist, build, .terraform)"
+authors = ["Saravanan G"]
+license = "MIT"
+
+[[bin]]
+name = "artifact-cleaner"
+path = "src/main.rs"
+
+[dependencies]
+# walkdir — recursive directory traversal (like `find` in bash)
+walkdir = "2"
+
+# clap — CLI argument parsing with --flags, subcommands, help text
+clap = { version = "4", features = ["derive"] }
+
+# chrono — date/time handling (timestamps, duration math)
+chrono = "0.4"
+
+# indicatif — progress bars and spinners for terminal UX
+indicatif = "0.17"
+
+# colored — terminal colour output (green = safe, red = deleted, yellow = warning)
+colored = "2"
+
+# humansize — converts raw bytes → "1.2 GB", "340 MB" etc.
+humansize = "2"
+
+# dialoguer — interactive prompts ("Delete all? [y/N]")
+dialoguer = "0.11"
+
+# ── Release profile — optimised for distribution ──────────────────────────────
+# Only applies to `cargo build --release` — dev builds are unaffected.
+# lto + codegen-units=1 + strip produces the smallest possible binary.
+[profile.release]
+opt-level = 3        # maximum speed optimisation
+lto = true           # link-time optimisation (cross-module inlining)
+codegen-units = 1    # one codegen unit = smaller binary, slower compile
+strip = true         # strip debug symbols (reduces binary size 3-5x)
+panic = "abort"      # no stack unwinding on panic = smaller binary

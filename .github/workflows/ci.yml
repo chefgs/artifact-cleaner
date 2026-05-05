@@ -1,0 +1,90 @@
+# .github/workflows/ci.yml
+#
+# Continuous Integration — runs on every push and pull request.
+# Catches compile errors and warnings BEFORE they reach a release.
+#
+# WHY separate CI from release?
+# - CI runs on every commit — fast feedback, no artifact upload
+# - Release runs only on tags — full cross-compile, uploads binaries
+# Keeping them separate means PRs get instant feedback without
+# triggering expensive cross-compilation.
+
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+
+  # Check — fastest possible gate (no binary produced)
+  # `cargo check` only type-checks — does not link or produce a binary.
+  # Catches 95% of errors in ~10 seconds instead of 60+ seconds for full build.
+  check:
+    name: Check
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --all-targets
+
+  # Clippy — Rust's official linter
+  # Catches common mistakes, non-idiomatic code, and potential bugs.
+  # `-- -D warnings` = treat every warning as an error (strict mode).
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo clippy --all-targets -- -D warnings
+
+  # Format check — enforces consistent code style
+  # `rustfmt` is Rust's official formatter (like `gofmt` for Go, `black` for Python).
+  # `-- --check` exits with error if any file would be reformatted.
+  fmt:
+    name: Format
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --all -- --check
+
+  # Test — run the test suite
+  # Rust tests live in the same file as the code they test, inside `#[cfg(test)]` blocks.
+  # `cargo test` compiles test binaries and runs them.
+  test:
+    name: Test
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo test --all
+
+  # Build on all 3 platforms to catch platform-specific compile errors early
+  # This is a debug build (fast) — not the optimised release build.
+  build:
+    name: Build — ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-14, ubuntu-22.04, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.os }}
+      - run: cargo build
