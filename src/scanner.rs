@@ -1,7 +1,7 @@
 // scanner.rs — finds stale artifact folders in a workspace
 
 use chrono::{DateTime, Local};
-use humansize::{format_size, DECIMAL};
+use humansize::{DECIMAL, format_size};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
