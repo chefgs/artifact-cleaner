@@ -28,6 +28,12 @@ on:
   push:
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'   # triggers on v1.0.0, v2.1.3 etc.
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. v0.1.0)'
+        required: true
+        type: string
 
 # Cancel any in-progress run for the same tag (prevents duplicate releases)
 concurrency:
@@ -37,8 +43,29 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always   # coloured cargo output in logs
   BINARY_NAME: artifact-cleaner
+  # Resolves to the tag name on a push trigger, or the manually entered version on workflow_dispatch
+  RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
 
 jobs:
+
+  # ── Version validation (workflow_dispatch only) ───────────────────────────────
+  # Enforces that the manually entered version matches vMAJOR.MINOR.PATCH so that
+  # tag names, asset filenames and install-script URLs remain consistent.
+  # Skipped automatically on push-tag triggers (job has no effect there).
+  # ─────────────────────────────────────────────────────────────────────────────
+  validate-version:
+    name: Validate version input
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check version format (must match v<major>.<minor>.<patch>)
+        run: |
+          if [[ ! "${{ github.event.inputs.version }}" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Invalid version '${{ github.event.inputs.version }}'. \
+          Expected format: v<major>.<minor>.<patch>  (e.g. v1.0.0)"
+            exit 1
+          fi
+          echo "Version '${{ github.event.inputs.version }}' is valid."
 
   # ── macOS ────────────────────────────────────────────────────────────────────
   # WHY macOS runner for macOS targets?
@@ -49,7 +76,11 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-macos:
     name: macOS — ${{ matrix.target }}
+    needs: [validate-version]
+    if: success() || needs.validate-version.result == 'skipped'
     runs-on: macos-14           # Apple Silicon runner (M1) — free on GitHub Actions
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -94,7 +125,7 @@ jobs:
       # or corrupted in transit. shasum is available on all macOS systems.
       - name: Package
         run: |
-          RELEASE_DIR="artifact-cleaner-${{ github.ref_name }}-${{ matrix.target }}"
+          RELEASE_DIR="artifact-cleaner-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
           mkdir -p "$RELEASE_DIR"
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} "$RELEASE_DIR/"
           cp README.md "$RELEASE_DIR/" 2>/dev/null || true
@@ -108,10 +139,11 @@ jobs:
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_VERSION }}
+          generate_release_notes: true
           files: |
             ${{ env.ASSET }}
             ${{ env.ASSET_SHA }}
-          generate_release_notes: true   # auto-generates changelog from commit messages
 
 
   # ── Linux ────────────────────────────────────────────────────────────────────
@@ -132,7 +164,11 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-linux:
     name: Linux — ${{ matrix.target }}
+    needs: [validate-version]
+    if: success() || needs.validate-version.result == 'skipped'
     runs-on: ubuntu-22.04
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -178,7 +214,7 @@ jobs:
 
       - name: Package
         run: |
-          RELEASE_DIR="artifact-cleaner-${{ github.ref_name }}-${{ matrix.target }}"
+          RELEASE_DIR="artifact-cleaner-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
           mkdir -p "$RELEASE_DIR"
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} "$RELEASE_DIR/"
           cp README.md "$RELEASE_DIR/" 2>/dev/null || true
@@ -191,10 +227,11 @@ jobs:
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_VERSION }}
+          generate_release_notes: true
           files: |
             ${{ env.ASSET }}
             ${{ env.ASSET_SHA }}
-          generate_release_notes: true
 
 
   # ── Windows ──────────────────────────────────────────────────────────────────
@@ -219,7 +256,11 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-windows:
     name: Windows — ${{ matrix.target }}
+    needs: [validate-version]
+    if: success() || needs.validate-version.result == 'skipped'
     runs-on: windows-latest
+    permissions:
+      contents: write
     strategy:
       matrix:
         include:
@@ -249,7 +290,7 @@ jobs:
       - name: Package
         shell: pwsh
         run: |
-          $RELEASE_DIR = "artifact-cleaner-${{ github.ref_name }}-${{ matrix.target }}"
+          $RELEASE_DIR = "artifact-cleaner-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
           New-Item -ItemType Directory -Path $RELEASE_DIR
           Copy-Item "target\${{ matrix.target }}\release\${{ env.BINARY_NAME }}.exe" $RELEASE_DIR\
           if (Test-Path "README.md") { Copy-Item "README.md" $RELEASE_DIR\ }
@@ -263,10 +304,11 @@ jobs:
       - name: Upload to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_VERSION }}
+          generate_release_notes: true
           files: |
             ${{ env.ASSET }}
             ${{ env.ASSET_SHA }}
-          generate_release_notes: true
 
 
   # ── Merge all checksums into one checksums.txt ───────────────────────────────
@@ -289,7 +331,7 @@ jobs:
       - name: Download all .sha256 files from the release
         uses: robinraju/release-downloader@v1
         with:
-          tag: ${{ github.ref_name }}
+          tag: ${{ env.RELEASE_VERSION }}
           fileName: "*.sha256"
           out-file-path: checksums
 
@@ -304,6 +346,8 @@ jobs:
       - name: Upload checksums.txt to release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ env.RELEASE_VERSION }}
+          generate_release_notes: true
           files: checksums.txt
 
   # ── Gate job — confirms everything succeeded ──────────────────────────────────
@@ -314,15 +358,15 @@ jobs:
     steps:
       - name: All platforms built successfully
         run: |
-          echo "✓ Release ${{ github.ref_name }} published successfully"
+          echo "✓ Release ${{ env.RELEASE_VERSION }} published successfully"
           echo ""
           echo "Binaries:"
-          echo "  artifact-cleaner-${{ github.ref_name }}-aarch64-apple-darwin.tar.gz"
-          echo "  artifact-cleaner-${{ github.ref_name }}-x86_64-apple-darwin.tar.gz"
-          echo "  artifact-cleaner-${{ github.ref_name }}-x86_64-unknown-linux-musl.tar.gz"
-          echo "  artifact-cleaner-${{ github.ref_name }}-aarch64-unknown-linux-musl.tar.gz"
-          echo "  artifact-cleaner-${{ github.ref_name }}-x86_64-pc-windows-msvc.zip"
-          echo "  artifact-cleaner-${{ github.ref_name }}-aarch64-pc-windows-msvc.zip"
+          echo "  artifact-cleaner-${{ env.RELEASE_VERSION }}-aarch64-apple-darwin.tar.gz"
+          echo "  artifact-cleaner-${{ env.RELEASE_VERSION }}-x86_64-apple-darwin.tar.gz"
+          echo "  artifact-cleaner-${{ env.RELEASE_VERSION }}-x86_64-unknown-linux-musl.tar.gz"
+          echo "  artifact-cleaner-${{ env.RELEASE_VERSION }}-aarch64-unknown-linux-musl.tar.gz"
+          echo "  artifact-cleaner-${{ env.RELEASE_VERSION }}-x86_64-pc-windows-msvc.zip"
+          echo "  artifact-cleaner-${{ env.RELEASE_VERSION }}-aarch64-pc-windows-msvc.zip"
           echo ""
           echo "Integrity:"
           echo "  checksums.txt  (SHA256 for all 6 binaries)"
