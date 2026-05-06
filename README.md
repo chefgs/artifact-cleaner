@@ -8,7 +8,7 @@
 
 A Rust-based CLI tool for scanning and cleaning common development artifacts such as `node_modules`, `.next`, `dist`, `build`, `target`, `.terraform`, and cache folders.
 
-This project is also used as a practical Rust learning project for Go and Python developers.
+This project is also used as a practical Rust learning project for Go, Python, and Java developers.
 
 Built in Rust. Single binary. No dependencies.
 
@@ -119,7 +119,7 @@ hyperfine \
 
 ## Learn Rust with this project
 
-This repo is designed to help Go and Python developers understand Rust through a real DevOps CLI project.
+This repo is designed to help Go, Python, and Java developers understand Rust through a real DevOps CLI project.
 
 Start here:
 
@@ -128,6 +128,12 @@ Start here:
 3. Read `src/cleaner.rs`
 4. Read `src/display.rs`
 5. Then open `RUST_LEARNING.md`
+
+For a shorter article-style path, read the three-part series:
+
+1. [Part 1: Foundations for Go, Python, and Java Developers](articles/rust-learning-part-1-foundations.md)
+2. [Part 2: Ownership, Borrowing, and Errors](articles/rust-learning-part-2-ownership-errors.md)
+3. [Part 3: Production Patterns in a Real CLI](articles/rust-learning-part-3-production-patterns.md)
 
 ## Options
 
