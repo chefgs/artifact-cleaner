@@ -135,6 +135,8 @@ For a shorter article-style path, read the three-part series:
 2. [Part 2: Ownership, Borrowing, and Errors](articles/rust-learning-part-2-ownership-errors.md)
 3. [Part 3: Production Patterns in a Real CLI](articles/rust-learning-part-3-production-patterns.md)
 
+For an even simpler backend-focused introduction, read [Rust for Backend Developers: Simple Examples You Can Relate To](articles/rust-for-backend-developers.md).
+
 ## Options
 
 ```
