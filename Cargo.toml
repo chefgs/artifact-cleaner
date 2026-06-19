@@ -10,6 +10,10 @@ license = "MIT"
 name = "artifact-cleaner"
 path = "src/main.rs"
 
+[[bin]]
+name = "ac"
+path = "src/main.rs"
+
 [dependencies]
 # walkdir — recursive directory traversal (like `find` in bash)
 walkdir = "2"

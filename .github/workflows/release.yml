@@ -43,6 +43,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always   # coloured cargo output in logs
   BINARY_NAME: artifact-cleaner
+  BINARY_SHORT: ac
   # Resolves to the tag name on a push trigger, or the manually entered version on workflow_dispatch
   RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
 
@@ -128,9 +129,9 @@ jobs:
           RELEASE_DIR="artifact-cleaner-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
           mkdir -p "$RELEASE_DIR"
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} "$RELEASE_DIR/"
+          cp target/${{ matrix.target }}/release/${{ env.BINARY_SHORT }} "$RELEASE_DIR/"
           cp README.md "$RELEASE_DIR/" 2>/dev/null || true
           tar -czf "$RELEASE_DIR.tar.gz" "$RELEASE_DIR"
-          # Generate SHA256 checksum — shasum -a 256 is standard on macOS
           shasum -a 256 "$RELEASE_DIR.tar.gz" > "$RELEASE_DIR.tar.gz.sha256"
           echo "ASSET=$RELEASE_DIR.tar.gz" >> $GITHUB_ENV
           echo "ASSET_SHA=$RELEASE_DIR.tar.gz.sha256" >> $GITHUB_ENV
@@ -217,9 +218,9 @@ jobs:
           RELEASE_DIR="artifact-cleaner-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
           mkdir -p "$RELEASE_DIR"
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} "$RELEASE_DIR/"
+          cp target/${{ matrix.target }}/release/${{ env.BINARY_SHORT }} "$RELEASE_DIR/"
           cp README.md "$RELEASE_DIR/" 2>/dev/null || true
           tar -czf "$RELEASE_DIR.tar.gz" "$RELEASE_DIR"
-          # sha256sum is standard on Linux (GNU coreutils)
           sha256sum "$RELEASE_DIR.tar.gz" > "$RELEASE_DIR.tar.gz.sha256"
           echo "ASSET=$RELEASE_DIR.tar.gz" >> $GITHUB_ENV
           echo "ASSET_SHA=$RELEASE_DIR.tar.gz.sha256" >> $GITHUB_ENV
@@ -293,6 +294,7 @@ jobs:
           $RELEASE_DIR = "artifact-cleaner-${{ env.RELEASE_VERSION }}-${{ matrix.target }}"
           New-Item -ItemType Directory -Path $RELEASE_DIR
           Copy-Item "target\${{ matrix.target }}\release\${{ env.BINARY_NAME }}.exe" $RELEASE_DIR\
+          Copy-Item "target\${{ matrix.target }}\release\${{ env.BINARY_SHORT }}.exe" $RELEASE_DIR\
           if (Test-Path "README.md") { Copy-Item "README.md" $RELEASE_DIR\ }
           Compress-Archive -Path $RELEASE_DIR -DestinationPath "$RELEASE_DIR.zip"
           # Generate SHA256 — output format matches sha256sum on Linux for consistency

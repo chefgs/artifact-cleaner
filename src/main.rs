@@ -7,9 +7,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 mod cleaner;
 mod display;
+mod mac_library;
 mod scanner;
 
-use clap::Parser;
+use clap::{Args, Parser, Subcommand};
 use colored::Colorize;
 use dialoguer::Confirm;
 use indicatif::{ProgressBar, ProgressStyle};
@@ -29,8 +30,8 @@ use std::path::PathBuf;
 // ─────────────────────────────────────────────────────────────────────────────
 #[derive(Parser, Debug)]
 #[command(
-    name = "artifact-cleaner",
-    about = "Find and remove stale build artifacts to reclaim disk space",
+    name = env!("CARGO_BIN_NAME"),
+    about = "Reclaim disk space — remove stale build artifacts and unused macOS Library data",
     version = env!("CARGO_PKG_VERSION"),
     long_about = "
 Scans a workspace directory for stale build artifact folders
@@ -41,6 +42,26 @@ Python virtual environments (.venv, venv, env) are always excluded.
 "
 )]
 struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+// ─── RUST LESSON — Subcommands ───────────────────────────────────────────────
+// #[derive(Subcommand)] generates a clap subcommand enum.
+// Each variant becomes a subcommand: `ac scan`, `ac mac-lib`.
+// #[derive(Args)] on a separate struct lets each subcommand own its flags.
+// This is cleaner than one giant struct as commands grow.
+// ─────────────────────────────────────────────────────────────────────────────
+#[derive(Subcommand, Debug)]
+enum Commands {
+    /// Scan a workspace directory for stale build artifacts
+    Scan(ScanArgs),
+    /// Scan macOS Library folders for orphaned app/tool data
+    MacLib(MacLibArgs),
+}
+
+#[derive(Args, Debug)]
+struct ScanArgs {
     /// Workspace directory to scan (default: current directory)
     #[arg(default_value = ".")]
     path: PathBuf,
@@ -71,6 +92,29 @@ struct Cli {
     no_interactive: bool,
 }
 
+#[derive(Args, Debug)]
+pub struct MacLibArgs {
+    /// Only flag items larger than this size in MB
+    #[arg(long, default_value_t = 100)]
+    pub min_size: u64,
+
+    /// Directories to scan — any combination of: caches, containers, groups
+    #[arg(
+        long,
+        value_delimiter = ',',
+        default_values = &["caches", "containers", "groups"]
+    )]
+    pub dirs: Vec<String>,
+
+    /// Preview what would be deleted without actually deleting
+    #[arg(short, long, default_value_t = false)]
+    pub dry_run: bool,
+
+    /// Delete without asking for confirmation
+    #[arg(short, long, default_value_t = false)]
+    pub yes: bool,
+}
+
 // ─── RUST LESSON — fn main() ─────────────────────────────────────────────────
 // Every Rust binary starts at fn main().
 // Unlike many languages, main() returns () (unit — nothing).
@@ -83,9 +127,16 @@ fn main() {
     // a populated Cli instance — or prints help/error and exits automatically.
     let cli = Cli::parse();
 
-    // Resolve the workspace path to an absolute canonical path.
-    // canonicalize() follows symlinks and resolves relative paths.
-    // unwrap_or_else runs only if canonicalize() returns Err — graceful fallback.
+    match cli.command {
+        Commands::Scan(args) => run_scan(args),
+        Commands::MacLib(args) => mac_library::run(&args),
+    }
+}
+
+// Resolve the workspace path to an absolute canonical path.
+// canonicalize() follows symlinks and resolves relative paths.
+// unwrap_or_else runs only if canonicalize() returns Err — graceful fallback.
+fn run_scan(cli: ScanArgs) {
     let workspace = cli.path.canonicalize().unwrap_or_else(|_| {
         eprintln!(
             "{} Path not found: {}",
@@ -186,7 +237,6 @@ fn main() {
         return;
     }
 
-    // Collect paths to delete — .map() transforms, .collect() gathers into Vec
     let paths: Vec<PathBuf> = artifacts.into_iter().map(|a| a.path).collect();
     let result = cleaner::delete_artifacts(paths, false);
     display::print_delete_result(&result, false);
