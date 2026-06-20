@@ -91,7 +91,9 @@ fn is_uuid(name: &str) -> bool {
         && parts[2].len() == 4
         && parts[3].len() == 4
         && parts[4].len() == 12
-        && parts.iter().all(|p| p.chars().all(|c| c.is_ascii_hexdigit()))
+        && parts
+            .iter()
+            .all(|p| p.chars().all(|c| c.is_ascii_hexdigit()))
 }
 
 // Strip a 10-char Team ID prefix: "6N38VWS5BX.ru.keepcoder.Telegram" → "ru.keepcoder.Telegram"
