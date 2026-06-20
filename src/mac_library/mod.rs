@@ -3,22 +3,34 @@
 //
 // Only supported on macOS (uses mdfind / which).
 
+#[cfg(target_os = "macos")]
 mod checker;
+#[cfg(target_os = "macos")]
 mod display;
+#[cfg(target_os = "macos")]
 mod resolver;
+#[cfg(target_os = "macos")]
 mod scanner;
 
 use crate::MacLibArgs;
 use colored::Colorize;
+#[cfg(target_os = "macos")]
 use dialoguer::Confirm;
+#[cfg(target_os = "macos")]
 use humansize::{DECIMAL, format_size};
+#[cfg(target_os = "macos")]
 use indicatif::{ProgressBar, ProgressStyle};
+#[cfg(target_os = "macos")]
 use scanner::EntryStatus;
+#[cfg(target_os = "macos")]
 use std::fs;
 
 #[cfg(not(target_os = "macos"))]
 pub fn run(_args: &MacLibArgs) {
-    eprintln!("{} mac-lib is only supported on macOS.", "Error:".red().bold());
+    eprintln!(
+        "{} mac-lib is only supported on macOS.",
+        "Error:".red().bold()
+    );
     std::process::exit(1);
 }
 
@@ -68,7 +80,12 @@ pub fn run(args: &MacLibArgs) {
     // ─────────────────────────────────────────────────────────────────────────
     let orphaned: Vec<_> = entries
         .iter()
-        .filter(|e| matches!(e.status, EntryStatus::OrphanedApp | EntryStatus::OrphanedCli))
+        .filter(|e| {
+            matches!(
+                e.status,
+                EntryStatus::OrphanedApp | EntryStatus::OrphanedCli
+            )
+        })
         .collect();
 
     let active_count = entries
