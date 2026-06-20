@@ -82,24 +82,50 @@ cargo install --path .
 
 ## Usage
 
+Both `artifact-cleaner` (full name) and `ac` (short alias) are installed and identical.
+
+### Scan workspace for stale build artifacts
+
 ```bash
 # Scan current directory, 2-month threshold (default)
-artifact-cleaner
+ac scan
 
 # Scan a specific workspace
-artifact-cleaner ~/Documents/github
+ac scan ~/Documents/github
 
 # Use a 3-month threshold
-artifact-cleaner ~/Documents/github --months 3
+ac scan ~/Documents/github --months 3
 
 # Dry run — preview without deleting
-artifact-cleaner ~/Documents/github --dry-run
+ac scan ~/Documents/github --dry-run
 
 # Skip confirmation prompt (for scripts/CI)
-artifact-cleaner ~/Documents/github --yes
+ac scan ~/Documents/github --yes
 
 # Target specific artifact types only
-artifact-cleaner ~/Documents/github --types node_modules,.next
+ac scan ~/Documents/github --types node_modules,.next
+```
+
+### Scan macOS Library for orphaned data (macOS only)
+
+```bash
+# Scan Caches, Containers, and Group Containers (default: items > 100 MB)
+ac mac-lib
+
+# Preview without deleting
+ac mac-lib --dry-run
+
+# Set a custom size threshold (200 MB)
+ac mac-lib --min-size 200
+
+# Scan only Caches
+ac mac-lib --dirs caches
+
+# Scan Caches and Containers only
+ac mac-lib --dirs caches,containers
+
+# Skip confirmation prompt
+ac mac-lib --yes
 ```
 
 ## Benchmark
@@ -119,40 +145,64 @@ hyperfine \
 
 ## Learn Rust with this project
 
-This repo is designed to help Go, Python, and Java developers understand Rust through a real DevOps CLI project.
+This repo is designed to help Go, Python, and Java developers understand Rust through a real DevOps CLI project. The source code contains 34 inline `RUST LESSON` blocks explaining each language construct in context.
 
-Start here:
+### Choose your learning path
 
-1. Read `src/main.rs`
-2. Read `src/scanner.rs`
-3. Read `src/cleaner.rs`
-4. Read `src/display.rs`
-5. Then open `RUST_LEARNING.md`
+**New to programming or Rust?**
+→ Start with [RUST_LEARNING.md §0 — Before You Start](./RUST_LEARNING.md#0-before-you-start) then read the source files below.
 
-For a shorter article-style path, read the three-part series:
+**Already know Go, Python, or Java?**
+→ Jump straight into the source files, then use [RUST_LEARNING.md](./RUST_LEARNING.md) as a reference.
 
-1. [Part 1: Foundations for Go, Python, and Java Developers](articles/rust-learning-part-1-foundations.md)
+**Prefer articles?**
+→ Read the three-part series:
+1. [Part 1: Foundations](articles/rust-learning-part-1-foundations.md)
 2. [Part 2: Ownership, Borrowing, and Errors](articles/rust-learning-part-2-ownership-errors.md)
 3. [Part 3: Production Patterns in a Real CLI](articles/rust-learning-part-3-production-patterns.md)
 
-For an even simpler backend-focused introduction, read [Rust for Backend Developers: Simple Examples You Can Relate To](articles/rust-for-backend-developers.md).
+Or start even simpler: [Rust for Backend Developers](articles/rust-for-backend-developers.md).
 
-## Options
+### Suggested source reading order
 
 ```
-Usage: artifact-cleaner [OPTIONS] [PATH]
+src/scanner.rs              ← structs, constants, functions, iterators, match
+src/cleaner.rs              ← ownership, error handling, implicit return
+src/display.rs              ← imports, formatting, slices, private helpers
+src/main.rs                 ← mod declarations, clap, subcommands, closures
+src/mac_library/
+  resolver.rs               ← enums as data, private helpers
+  checker.rs                ← subprocess calls, std::process::Command
+  scanner.rs                ← super::, flatten, closures, Option chaining
+  mod.rs                    ← cfg, matches!, borrowing in loops
+  display.rs                ← slices, tuple returns
+```
 
-Arguments:
-  [PATH]  Workspace directory to scan [default: .]
+**Quick reference:** [LESSONS.md](./LESSONS.md) — index of all 34 lesson blocks by topic with direct links to source lines.
 
-Options:
-  -m, --months <MONTHS>  Stale threshold in months [default: 2]
-  -t, --types <TYPES>    Artifact types to target [default: node_modules,.next,dist,build,.terraform]
-  -d, --dry-run          Preview without deleting
-  -y, --yes              Skip confirmation prompt
-      --no-interactive   Non-interactive output only
-  -h, --help             Print help
-  -V, --version          Print version
+## Commands
+
+```
+ac <COMMAND>
+
+Commands:
+  scan     Scan a workspace directory for stale build artifacts
+  mac-lib  Scan macOS Library folders for orphaned app/tool data
+  help     Print help for any command
+
+ac scan [OPTIONS] [PATH]
+  [PATH]                   Workspace directory to scan [default: .]
+  -m, --months <MONTHS>    Stale threshold in months [default: 2]
+  -t, --types <TYPES>      Artifact types [default: node_modules,.next,dist,build,.terraform]
+  -d, --dry-run            Preview without deleting
+  -y, --yes                Skip confirmation prompt
+      --no-interactive     Non-interactive output only
+
+ac mac-lib [OPTIONS]
+      --min-size <MB>      Minimum item size to flag in MB [default: 100]
+      --dirs <DIRS>        Directories to scan: caches,containers,groups [default: all]
+  -d, --dry-run            Preview without deleting
+  -y, --yes                Skip confirmation prompt
 ```
 
 ## What it skips (always safe)

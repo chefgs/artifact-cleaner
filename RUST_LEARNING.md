@@ -1,14 +1,16 @@
-# Rust for Go & Python Developers
-### Lessons from building `artifact-cleaner`
+# Rust for Go, Python & Java Developers
+### Lessons from building `artifact-cleaner` and `ac`
 
-> This document is written for developers who already know Go or Python.
 > Every concept is explained using real code from this project — not toy examples.
 > Read it alongside the source files in `src/`.
+>
+> **Quick reference:** See [LESSONS.md](./LESSONS.md) for an indexed map of all lesson blocks in the source.
 
 ---
 
 ## Table of Contents
 
+0. [Before You Start — complete beginners start here](#0-before-you-start)
 1. [The Big Picture — Why Rust is different](#1-the-big-picture)
 2. [Project layout & the build system](#2-project-layout--the-build-system)
 3. [Variables, types, and mutability](#3-variables-types-and-mutability)
@@ -30,6 +32,99 @@
 19. [Memory model — stack vs heap](#19-memory-model--stack-vs-heap)
 20. [Common beginner mistakes](#20-common-beginner-mistakes)
 21. [Cheat sheet — Go/Python vs Rust](#21-cheat-sheet--gopython-vs-rust)
+
+---
+
+## 0. Before You Start
+
+> **This section is for complete beginners.** If you already know Go, Python, or another compiled language, skip to Section 1.
+
+### What is a compiled language?
+
+Python and JavaScript run code by interpreting it line by line. Rust is different — before your program can run, it must be **compiled**: translated from source code into a native binary your CPU executes directly.
+
+```
+Python:   source.py  →  interpreter reads + runs it (slow startup, no binary)
+Go:       main.go    →  go build  →  binary  →  runs
+Rust:     main.rs    →  cargo build  →  binary  →  runs (with more checks)
+```
+
+The Rust compiler (`rustc`) checks your entire program for type errors, memory errors, and logic problems **before** it produces a binary. If the code compiles, it almost certainly won't crash at runtime due to those categories of errors. This is the trade-off: longer compile times, faster and safer programs.
+
+### Installing Rust
+
+The official installer is `rustup`. It installs the compiler, the standard library, and Cargo (Rust's build tool) in one step.
+
+```bash
+# macOS / Linux
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+# Windows — download rustup-init.exe from https://rustup.rs
+```
+
+After installation, open a new terminal and verify:
+
+```bash
+rustc --version    # e.g. rustc 1.82.0 (f6e511eec 2024-10-15)
+cargo --version    # e.g. cargo 1.82.0 (8f40fc59f 2024-08-21)
+```
+
+### Running this project for the first time
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/chefgs/artifact-cleaner.git
+cd artifact-cleaner
+
+# 2. Build (debug mode — fast compile, slower binary)
+cargo build
+
+# 3. Run with --help to see what was built
+cargo run -- --help
+# or, after build:
+./target/debug/artifact-cleaner --help
+
+# 4. Try a dry run in your home directory
+cargo run -- scan ~ --dry-run
+
+# 5. Build optimised binary (slow compile, fast runtime)
+cargo build --release
+./target/release/ac mac-lib --dry-run
+```
+
+### What to expect from the compiler
+
+The Rust compiler's error messages are the best of any language. When something is wrong, it tells you exactly what, why, and often how to fix it:
+
+```
+error[E0382]: borrow of moved value: `paths`
+  --> src/main.rs:42:20
+   |
+40 |     let paths = get_paths();
+   |         ----- move occurs because `paths` has type `Vec<PathBuf>`
+41 |     delete(paths);    // paths moved here
+   |            ----- value moved here
+42 |     println!("{:?}", paths);  // ERROR
+   |                      ^^^^^ value borrowed here after move
+   |
+help: consider cloning the value if the performance cost is acceptable
+   |
+41 |     delete(paths.clone());
+   |                 ++++++++
+```
+
+Read every error message — they almost always tell you the fix. The `help:` and `note:` lines are especially useful.
+
+### Compiler warnings are not optional
+
+Unlike Python or Go, ignoring Rust warnings is bad practice. The compiler warns about unused variables, dead code, and patterns that could cause bugs. Fix warnings as they appear — they often point to real issues.
+
+```bash
+cargo check   # check for errors and warnings without producing a binary (fastest)
+cargo clippy  # additional lint checks (install once with: rustup component add clippy)
+```
+
+Now continue to Section 1 to understand why Rust is fundamentally different from Python and Go.
 
 ---
 
@@ -91,13 +186,71 @@ It is the best build tool of any language — no Makefile, no CMake, no setup.py
 
 ```
 artifact-cleaner/
-├── Cargo.toml       ← package manifest (like package.json / go.mod)
-├── Cargo.lock       ← exact locked versions (like package-lock.json / go.sum)
+├── Cargo.toml           ← package manifest (like package.json / go.mod)
+├── Cargo.lock           ← exact locked versions (like package-lock.json / go.sum)
 └── src/
-    ├── main.rs      ← binary entry point (like main.go / __main__.py)
-    ├── scanner.rs   ← module
-    ├── cleaner.rs   ← module
-    └── display.rs   ← module
+    ├── main.rs          ← binary entry point; declares all top-level modules
+    ├── scanner.rs       ← workspace scanner module
+    ├── cleaner.rs       ← artifact deletion module
+    ├── display.rs       ← terminal output module
+    └── mac_library/     ← module directory (see below)
+        ├── mod.rs       ← entry point for the mac_library module
+        ├── resolver.rs  ← folder name classification
+        ├── checker.rs   ← app/CLI install detection
+        ├── scanner.rs   ← Library directory walker
+        └── display.rs   ← output formatting for mac-lib
+```
+
+### Module directories — `src/module/mod.rs`
+
+When a module grows beyond a single file, Rust lets you turn it into a **directory**. The directory's entry point is always `mod.rs`:
+
+```
+src/mac_library/mod.rs     ← Rust loads this when it sees `mod mac_library;`
+src/mac_library/scanner.rs ← sub-module, declared inside mod.rs as `mod scanner;`
+```
+
+From `main.rs`, you declare the directory module exactly like a single-file module:
+```rust
+mod mac_library;  // Rust checks src/mac_library.rs, then src/mac_library/mod.rs
+```
+
+Inside `mod.rs`, you then declare its sub-modules:
+```rust
+mod checker;    // resolves to src/mac_library/checker.rs
+mod display;    // resolves to src/mac_library/display.rs
+mod resolver;   // resolves to src/mac_library/resolver.rs
+mod scanner;    // resolves to src/mac_library/scanner.rs
+```
+
+Sub-modules navigate to each other with `super::` (one level up) instead of `crate::` (project root):
+```rust
+// Inside src/mac_library/scanner.rs — sibling modules
+use super::checker;              // mac_library::checker
+use super::resolver::EntryKind;  // mac_library::resolver::EntryKind
+```
+
+### Two binaries from one source file
+
+This project builds two CLI commands (`artifact-cleaner` and `ac`) from a single `src/main.rs`. The trick is two `[[bin]]` entries in `Cargo.toml`:
+
+```toml
+[[bin]]
+name = "artifact-cleaner"
+path = "src/main.rs"
+
+[[bin]]
+name = "ac"
+path = "src/main.rs"
+```
+
+Inside the code, `env!("CARGO_BIN_NAME")` resolves to whichever binary is being built, so each binary's `--help` self-identifies correctly:
+
+```rust
+#[command(name = env!("CARGO_BIN_NAME"), ...)]
+struct Cli { ... }
+// When built as "ac":       name = "ac"
+// When built as "artifact-cleaner": name = "artifact-cleaner"
 ```
 
 ### Cargo commands
@@ -119,7 +272,7 @@ cargo add walkdir     # add a dependency (updates Cargo.toml automatically)
 [package]
 name = "artifact-cleaner"
 version = "0.1.0"
-edition = "2021"          # Rust edition — like Go's go directive
+edition = "2024"          # Rust edition — like Go's go directive
 
 [dependencies]
 walkdir = "2"             # semver — any 2.x.x
@@ -886,16 +1039,51 @@ func baz() {}               // unexported
 
 ```
 crate (src/main.rs)
-├── mod scanner  (src/scanner.rs)
-├── mod cleaner  (src/cleaner.rs)
-└── mod display  (src/display.rs)
+├── mod scanner       (src/scanner.rs)
+├── mod cleaner       (src/cleaner.rs)
+├── mod display       (src/display.rs)
+└── mod mac_library   (src/mac_library/mod.rs)
+    ├── mod checker   (src/mac_library/checker.rs)
+    ├── mod resolver  (src/mac_library/resolver.rs)
+    ├── mod scanner   (src/mac_library/scanner.rs)
+    └── mod display   (src/mac_library/display.rs)
 ```
 
 Refer to items across modules:
 ```rust
-crate::scanner::compute_size(&path)  // full path from crate root
-scanner::compute_size(&path)         // from main.rs (child module)
+crate::scanner::compute_size(&path)          // full path from crate root
+mac_library::run(&args)                      // from main.rs (direct child)
+use super::resolver::EntryKind;              // from mac_library/scanner.rs (sibling)
 ```
+
+### `#[cfg(...)]` — conditional compilation
+
+`#[cfg]` is evaluated at **compile time**, not runtime. Code inside a `#[cfg]` block is completely excluded from the binary on platforms where the condition is false.
+
+```rust
+// src/mac_library/mod.rs — this entire block is omitted on non-macOS builds
+#[cfg(not(target_os = "macos"))]
+pub fn run(_args: &crate::MacLibArgs) {
+    eprintln!("mac-lib is only supported on macOS.");
+}
+
+#[cfg(target_os = "macos")]
+pub fn run(args: &crate::MacLibArgs) {
+    // actual implementation
+}
+```
+
+This is different from a runtime `if`:
+```rust
+// Runtime check — both branches exist in the binary, condition checked at runtime
+if std::env::consts::OS == "macos" { ... }
+
+// Compile-time check — the non-matching branch is never compiled in
+#[cfg(target_os = "macos")]
+fn mac_only() { ... }
+```
+
+Use `#[cfg]` when you need platform-specific code, OS-specific APIs, or optional feature flags.
 
 ---
 
@@ -956,6 +1144,32 @@ vec![1, 2, 3];                // creates a Vec<i32>
 dbg!(value);                  // prints file:line:value to stderr — great for debugging
 todo!();                      // compile fine, panic at runtime — placeholder
 unreachable!();               // marks a code path that should never be reached
+```
+
+### `matches!` — readable boolean pattern checks
+
+`matches!(expr, pattern)` returns `true` if `expr` matches the pattern. It's shorthand for a `match` that returns a bool, and is especially useful inside `.filter()` chains:
+
+```rust
+// From src/mac_library/mod.rs — filter entries by status
+let orphaned: Vec<_> = results
+    .iter()
+    .filter(|e| matches!(e.status, EntryStatus::OrphanedApp | EntryStatus::OrphanedCli))
+    .collect();
+
+// The verbose equivalent — same result, more noise:
+let orphaned: Vec<_> = results
+    .iter()
+    .filter(|e| match e.status {
+        EntryStatus::OrphanedApp | EntryStatus::OrphanedCli => true,
+        _ => false,
+    })
+    .collect();
+```
+
+```python
+# Python equivalent
+orphaned = [e for e in results if e.status in ("OrphanedApp", "OrphanedCli")]
 ```
 
 ### Format strings
@@ -1043,6 +1257,51 @@ std::process::exit(1);            // exit with code
 | `colored` | Terminal colours | `colorama` | — |
 | `indicatif` | Progress bars/spinners | `tqdm` | — |
 | `dialoguer` | Interactive prompts | `inquirer` | — |
+
+### Subcommands with clap
+
+This project uses clap's derive API to build a multi-command CLI (`ac scan` and `ac mac-lib`). The pattern has three parts:
+
+```rust
+// 1. Top-level parser — holds the subcommand
+#[derive(Parser, Debug)]
+#[command(name = env!("CARGO_BIN_NAME"), about = "...", version = env!("CARGO_PKG_VERSION"))]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+// 2. Enum of subcommands — each variant holds its own Args struct
+#[derive(Subcommand, Debug)]
+enum Commands {
+    Scan(ScanArgs),    // `ac scan [OPTIONS] [PATH]`
+    MacLib(MacLibArgs), // `ac mac-lib [OPTIONS]`
+}
+
+// 3. Args struct per subcommand
+#[derive(Args, Debug)]
+struct ScanArgs {
+    #[arg(default_value = ".")]
+    path: PathBuf,
+    #[arg(short, long, default_value = "2")]
+    months: u32,
+    #[arg(short = 'd', long)]
+    dry_run: bool,
+}
+```
+
+Dispatching is a simple `match` on the enum:
+```rust
+fn main() {
+    let cli = Cli::parse();
+    match cli.command {
+        Commands::Scan(args) => run_scan(args),
+        Commands::MacLib(args) => mac_library::run(&args),
+    }
+}
+```
+
+clap auto-generates `--help`, usage strings, and error messages for each subcommand. `env!("CARGO_BIN_NAME")` makes each binary self-identify when built as both `artifact-cleaner` and `ac`.
 
 ### Adding a crate
 
