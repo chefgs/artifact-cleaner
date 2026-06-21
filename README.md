@@ -14,6 +14,12 @@ Built in Rust. Single binary. No dependencies.
 
 ![Artifact Cleaner CLI cleaning development artifacts and reclaiming storage](assets/repo-image.png)
 
+## Recent updates
+
+- Added `ac mac-lib` for scanning `~/Library/Caches`, `~/Library/Containers`, and `~/Library/Group Containers` for orphaned app and CLI data on macOS.
+- Added release install scripts for macOS, Linux, and Windows with automatic platform detection and SHA256 verification.
+- Kept CLI version output tied to Cargo package metadata so release binaries and source builds report the same version.
+
 ## Safe by default
 
 The tool always shows what it found before deleting anything. By default, destructive cleanup requires an interactive confirmation prompt, and `--dry-run` previews what would be deleted without removing files.
@@ -24,13 +30,31 @@ For scripts and CI, deletion without a prompt requires the explicit `--yes` flag
 
 ### One-liner (recommended)
 
-**macOS and Linux** — auto-detects your architecture, verifies SHA256, installs to PATH:
+The install scripts detect your OS and CPU architecture, download the matching release artifact, verify SHA256 checksums, install the binary into your `PATH`, and verify the binary runs.
+
+**macOS and Linux**:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/chefgs/artifact-cleaner/main/install.sh | bash
 ```
 
-**Windows** (PowerShell) — same, auto-detects x64 or ARM64:
+Install a specific release:
+```bash
+VERSION=v0.6.0 curl -fsSL https://raw.githubusercontent.com/chefgs/artifact-cleaner/main/install.sh | bash
+```
+
+Install to a custom directory:
+```bash
+INSTALL_DIR="$HOME/.local/bin" curl -fsSL https://raw.githubusercontent.com/chefgs/artifact-cleaner/main/install.sh | bash
+```
+
+**Windows** (PowerShell):
 ```powershell
+irm https://raw.githubusercontent.com/chefgs/artifact-cleaner/main/install.ps1 | iex
+```
+
+Install a specific release:
+```powershell
+$env:VERSION = "v0.6.0"
 irm https://raw.githubusercontent.com/chefgs/artifact-cleaner/main/install.ps1 | iex
 ```
 
@@ -56,10 +80,18 @@ tar -xzf artifact-cleaner.tar.gz
 sudo mv artifact-cleaner-*/artifact-cleaner /usr/local/bin/
 ```
 
-**Linux (x64 — static binary, works on any distro):**
+**Linux (x64 — static binary):**
 ```bash
 curl -Lo artifact-cleaner.tar.gz \
   https://github.com/chefgs/artifact-cleaner/releases/latest/download/artifact-cleaner-latest-x86_64-unknown-linux-musl.tar.gz
+tar -xzf artifact-cleaner.tar.gz
+sudo mv artifact-cleaner-*/artifact-cleaner /usr/local/bin/
+```
+
+**Linux (ARM64 — static binary):**
+```bash
+curl -Lo artifact-cleaner.tar.gz \
+  https://github.com/chefgs/artifact-cleaner/releases/latest/download/artifact-cleaner-latest-aarch64-unknown-linux-musl.tar.gz
 tar -xzf artifact-cleaner.tar.gz
 sudo mv artifact-cleaner-*/artifact-cleaner /usr/local/bin/
 ```
@@ -73,9 +105,28 @@ Expand-Archive -Path artifact-cleaner.zip -DestinationPath .
 # Move artifact-cleaner.exe to a folder in your PATH — see INSTALL.md
 ```
 
+**Windows (ARM64 — PowerShell):**
+```powershell
+Invoke-WebRequest `
+  -Uri "https://github.com/chefgs/artifact-cleaner/releases/latest/download/artifact-cleaner-latest-aarch64-pc-windows-msvc.zip" `
+  -OutFile "artifact-cleaner.zip"
+Expand-Archive -Path artifact-cleaner.zip -DestinationPath .
+# Move artifact-cleaner.exe to a folder in your PATH — see INSTALL.md
+```
+
 **Build from source (all platforms):**
 ```bash
 cargo install --path .
+```
+
+Requires a current Rust toolchain with Cargo. The CLI version is sourced from `Cargo.toml`, so `artifact-cleaner --version` matches the package version for local builds too.
+
+### Verify the install
+
+```bash
+artifact-cleaner --version
+ac --version
+artifact-cleaner --help
 ```
 
 **Not sure which binary to pick?** See the [platform guide in INSTALL.md](./INSTALL.md#before-you-start--find-the-right-binary).
