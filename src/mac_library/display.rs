@@ -28,7 +28,10 @@ pub fn print_header(total: usize, orphaned: usize, orphaned_bytes: u64, min_size
 // ─────────────────────────────────────────────────────────────────────────────
 pub fn print_results(entries: &[LibraryEntry]) {
     if entries.is_empty() {
-        println!("  {} No items found above the size threshold.", "✓".green().bold());
+        println!(
+            "  {} No items found above the size threshold.",
+            "✓".green().bold()
+        );
         return;
     }
 
@@ -106,7 +109,10 @@ pub fn print_delete_result(deleted: u32, freed_bytes: u64, failed: &[String], dr
 // content and the ANSI escape codes. Returning it (not a reference) is correct
 // because the value is created inside this function and has no owner above it.
 // ─────────────────────────────────────────────────────────────────────────────
-fn format_status(status: &EntryStatus, size_human: &str) -> (colored::ColoredString, colored::ColoredString) {
+fn format_status(
+    status: &EntryStatus,
+    size_human: &str,
+) -> (colored::ColoredString, colored::ColoredString) {
     match status {
         EntryStatus::OrphanedApp => ("● orphaned-app".red(), size_human.red()),
         EntryStatus::OrphanedCli => ("● orphaned-cli".red(), size_human.red()),
