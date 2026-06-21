@@ -3,32 +3,45 @@
 //
 // Only supported on macOS (uses mdfind / which).
 
+#[cfg(target_os = "macos")]
 mod checker;
+#[cfg(target_os = "macos")]
 mod display;
+#[cfg(target_os = "macos")]
 mod resolver;
+#[cfg(target_os = "macos")]
 mod scanner;
 
 use crate::MacLibArgs;
 use colored::Colorize;
+#[cfg(target_os = "macos")]
 use dialoguer::Confirm;
+#[cfg(target_os = "macos")]
 use humansize::{DECIMAL, format_size};
+#[cfg(target_os = "macos")]
 use indicatif::{ProgressBar, ProgressStyle};
+#[cfg(target_os = "macos")]
 use scanner::EntryStatus;
+#[cfg(target_os = "macos")]
 use std::fs;
+
+#[cfg(not(target_os = "macos"))]
+pub fn run(_args: &MacLibArgs) {
+    eprintln!(
+        "{} mac-lib is only supported on macOS.",
+        "Error:".red().bold()
+    );
+    std::process::exit(1);
+}
 
 // ─── RUST LESSON — #[cfg(...)] conditional compilation ───────────────────────
 // `#[cfg(target_os = "macos")]` is evaluated at COMPILE time, not runtime.
-// The block inside is completely omitted from the binary on non-macOS targets.
+// The function below is only compiled into macOS builds.
 // This is different from an `if` statement — the excluded code is never compiled,
 // so it can reference macOS-only APIs without causing linker errors on Linux.
 // ─────────────────────────────────────────────────────────────────────────────
+#[cfg(target_os = "macos")]
 pub fn run(args: &MacLibArgs) {
-    #[cfg(not(target_os = "macos"))]
-    {
-        eprintln!("{} mac-lib is only supported on macOS.", "Error:".red().bold());
-        std::process::exit(1);
-    }
-
     let min_size_bytes = args.min_size * 1024 * 1024;
 
     let spinner = ProgressBar::new_spinner();
@@ -67,7 +80,12 @@ pub fn run(args: &MacLibArgs) {
     // ─────────────────────────────────────────────────────────────────────────
     let orphaned: Vec<_> = entries
         .iter()
-        .filter(|e| matches!(e.status, EntryStatus::OrphanedApp | EntryStatus::OrphanedCli))
+        .filter(|e| {
+            matches!(
+                e.status,
+                EntryStatus::OrphanedApp | EntryStatus::OrphanedCli
+            )
+        })
         .collect();
 
     let active_count = entries

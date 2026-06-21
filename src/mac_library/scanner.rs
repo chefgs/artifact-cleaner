@@ -47,7 +47,12 @@ pub fn scan(min_size_bytes: u64, dirs: &[String]) -> Vec<LibraryEntry> {
         match dir.as_str() {
             "caches" => {
                 let path = home.join("Library/Caches");
-                results.extend(scan_dir(&path, FolderSource::Caches, "Caches", min_size_bytes));
+                results.extend(scan_dir(
+                    &path,
+                    FolderSource::Caches,
+                    "Caches",
+                    min_size_bytes,
+                ));
             }
             "containers" => {
                 let path = home.join("Library/Containers");
