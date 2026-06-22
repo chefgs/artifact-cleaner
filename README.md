@@ -159,6 +159,8 @@ ac scan ~/Documents/github --types node_modules,.next
 
 ### Scan macOS Library for orphaned data (macOS only)
 
+`mac-lib` only auto-deletes high-confidence orphaned app containers. Shared containers and ambiguous named caches are shown as cautionary items and are not deleted automatically.
+
 ```bash
 # Scan Caches, Containers, and Group Containers (default: items > 100 MB)
 ac mac-lib

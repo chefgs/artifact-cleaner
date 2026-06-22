@@ -17,7 +17,8 @@ pub enum FolderSource {
 #[derive(Debug, Clone)]
 pub enum EntryKind {
     BundleId(String),
-    CliTool(String),
+    SharedContainer(Vec<String>),
+    NamedCache(String),
     Excluded,
 }
 
@@ -51,17 +52,17 @@ fn classify_group_container(name: &str) -> EntryKind {
         if bundle_id.starts_with("com.apple.") {
             return EntryKind::Excluded;
         }
-        return EntryKind::BundleId(bundle_id);
+        return EntryKind::SharedContainer(shared_container_candidates(&bundle_id));
     }
 
     // Pattern: group.com.company.app
     if let Some(bundle_id) = strip_group_prefix(name) {
-        return EntryKind::BundleId(bundle_id);
+        return EntryKind::SharedContainer(shared_container_candidates(&bundle_id));
     }
 
     // Plain bundle ID with no prefix (e.g. com.company.app)
     if looks_like_bundle_id(name) {
-        return EntryKind::BundleId(name.to_string());
+        return EntryKind::SharedContainer(shared_container_candidates(name));
     }
 
     EntryKind::Excluded
@@ -74,8 +75,8 @@ fn classify_cache(name: &str) -> EntryKind {
     if looks_like_bundle_id(name) {
         return EntryKind::BundleId(name.to_string());
     }
-    // Everything else is treated as a CLI tool / named cache
-    EntryKind::CliTool(name.to_string())
+    // Generic cache folders are ambiguous; resolve conservatively later.
+    EntryKind::NamedCache(name.to_string())
 }
 
 // ─── RUST LESSON — Pure helper functions ─────────────────────────────────────
@@ -116,6 +117,22 @@ fn strip_group_prefix(name: &str) -> Option<String> {
     name.strip_prefix("group.").map(|s| s.to_string())
 }
 
+fn strip_shared_suffix(name: &str) -> Option<String> {
+    name.strip_suffix(".shared").map(|s| s.to_string())
+}
+
+fn shared_container_candidates(name: &str) -> Vec<String> {
+    let mut candidates = vec![name.to_string()];
+
+    if let Some(base) = strip_shared_suffix(name) {
+        candidates.push(base);
+    }
+
+    candidates.sort();
+    candidates.dedup();
+    candidates
+}
+
 fn looks_like_bundle_id(name: &str) -> bool {
     let parts: Vec<&str> = name.split('.').collect();
     parts.len() >= 2
@@ -123,4 +140,50 @@ fn looks_like_bundle_id(name: &str) -> bool {
             parts[0],
             "com" | "net" | "io" | "org" | "app" | "dev" | "ai" | "co" | "uk" | "ru" | "us"
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{EntryKind, FolderSource, classify};
+
+    #[test]
+    fn group_container_with_shared_suffix_is_treated_as_shared() {
+        let kind = classify(
+            "group.net.whatsapp.WhatsApp.shared",
+            &FolderSource::GroupContainers,
+        );
+
+        match kind {
+            EntryKind::SharedContainer(candidates) => {
+                assert!(candidates.contains(&"net.whatsapp.WhatsApp.shared".to_string()));
+                assert!(candidates.contains(&"net.whatsapp.WhatsApp".to_string()));
+            }
+            _ => panic!("expected shared container"),
+        }
+    }
+
+    #[test]
+    fn team_id_prefixed_group_container_stays_conservative() {
+        let kind = classify(
+            "UBF8T346G9.OneDriveSyncClientSuite",
+            &FolderSource::GroupContainers,
+        );
+
+        match kind {
+            EntryKind::SharedContainer(candidates) => {
+                assert_eq!(candidates, vec!["OneDriveSyncClientSuite".to_string()]);
+            }
+            _ => panic!("expected shared container"),
+        }
+    }
+
+    #[test]
+    fn named_cache_is_not_treated_as_cli_ownership() {
+        let kind = classify("Homebrew", &FolderSource::Caches);
+
+        match kind {
+            EntryKind::NamedCache(name) => assert_eq!(name, "Homebrew"),
+            _ => panic!("expected named cache"),
+        }
+    }
 }

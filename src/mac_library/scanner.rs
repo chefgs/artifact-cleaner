@@ -17,11 +17,9 @@ use std::path::{Path, PathBuf};
 pub enum EntryStatus {
     /// App not installed → safe to delete
     OrphanedApp,
-    /// CLI tool not in PATH → safe to delete
-    OrphanedCli,
     /// App IS installed but cache is oversized — shown as a caution item only
     ActiveOversized,
-    /// Cannot determine ownership → shown, not deleted (reserved for future resolver cases)
+    /// Cannot determine ownership with high confidence → shown, not deleted
     Unknown,
 }
 
@@ -85,7 +83,7 @@ pub fn scan(min_size_bytes: u64, dirs: &[String]) -> Vec<LibraryEntry> {
     // ─────────────────────────────────────────────────────────────────────────
     results.sort_by(|a, b| {
         let priority = |s: &EntryStatus| match s {
-            EntryStatus::OrphanedApp | EntryStatus::OrphanedCli => 0,
+            EntryStatus::OrphanedApp => 0,
             EntryStatus::Unknown => 1,
             EntryStatus::ActiveOversized => 2,
         };
@@ -168,11 +166,18 @@ fn resolve_status(kind: &EntryKind) -> Option<EntryStatus> {
                 Some(EntryStatus::OrphanedApp)
             }
         }
-        EntryKind::CliTool(tool) => {
-            if checker::is_cli_installed(tool) {
+        EntryKind::SharedContainer(bundle_ids) => {
+            if checker::is_any_bundle_id_installed(bundle_ids) {
                 Some(EntryStatus::ActiveOversized)
             } else {
-                Some(EntryStatus::OrphanedCli)
+                Some(EntryStatus::Unknown)
+            }
+        }
+        EntryKind::NamedCache(name) => {
+            if checker::is_named_cache_active(name) {
+                Some(EntryStatus::ActiveOversized)
+            } else {
+                Some(EntryStatus::Unknown)
             }
         }
         EntryKind::Excluded => None,

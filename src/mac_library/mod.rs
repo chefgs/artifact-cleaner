@@ -80,12 +80,7 @@ pub fn run(args: &MacLibArgs) {
     // ─────────────────────────────────────────────────────────────────────────
     let orphaned: Vec<_> = entries
         .iter()
-        .filter(|e| {
-            matches!(
-                e.status,
-                EntryStatus::OrphanedApp | EntryStatus::OrphanedCli
-            )
-        })
+        .filter(|e| matches!(e.status, EntryStatus::OrphanedApp))
         .collect();
 
     let active_count = entries
@@ -93,11 +88,16 @@ pub fn run(args: &MacLibArgs) {
         .filter(|e| matches!(e.status, EntryStatus::ActiveOversized))
         .count();
 
+    let unknown_count = entries
+        .iter()
+        .filter(|e| matches!(e.status, EntryStatus::Unknown))
+        .count();
+
     let orphaned_bytes: u64 = orphaned.iter().map(|e| e.size_bytes).sum();
 
     display::print_header(entries.len(), orphaned.len(), orphaned_bytes, args.min_size);
     display::print_results(&entries);
-    display::print_caution_note(active_count);
+    display::print_caution_note(active_count, unknown_count);
 
     if orphaned.is_empty() {
         println!("  {} No orphaned items to delete.", "✓".green().bold());

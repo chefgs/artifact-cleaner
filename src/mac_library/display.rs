@@ -60,17 +60,28 @@ pub fn print_results(entries: &[LibraryEntry]) {
     println!();
 }
 
-pub fn print_caution_note(active_count: usize) {
-    if active_count == 0 {
-        return;
+pub fn print_caution_note(active_count: usize, unknown_count: usize) {
+    if active_count > 0 {
+        println!(
+            "  {} {} active item(s) shown above are oversized but will NOT be deleted.",
+            "◉".yellow(),
+            active_count.to_string().bold()
+        );
+        println!("    Remove them manually only if you are certain the app data is regenerable.");
     }
-    println!(
-        "  {} {} active-app item(s) shown above are oversized but will NOT be deleted.",
-        "◉".yellow(),
-        active_count.to_string().bold()
-    );
-    println!("    Remove them manually only if you are certain the app data is regenerable.");
-    println!();
+
+    if unknown_count > 0 {
+        println!(
+            "  {} {} ambiguous item(s) are shown as unknown and will NOT be deleted automatically.",
+            "?".normal(),
+            unknown_count.to_string().bold()
+        );
+        println!("    These often include shared containers, helper data, and named caches.");
+    }
+
+    if active_count > 0 || unknown_count > 0 {
+        println!();
+    }
 }
 
 pub fn print_delete_result(deleted: u32, freed_bytes: u64, failed: &[String], dry_run: bool) {
@@ -115,7 +126,6 @@ fn format_status(
 ) -> (colored::ColoredString, colored::ColoredString) {
     match status {
         EntryStatus::OrphanedApp => ("● orphaned-app".red(), size_human.red()),
-        EntryStatus::OrphanedCli => ("● orphaned-cli".red(), size_human.red()),
         EntryStatus::ActiveOversized => ("◉ active-oversized".yellow(), size_human.yellow()),
         EntryStatus::Unknown => ("? unknown".normal(), size_human.normal()),
     }
