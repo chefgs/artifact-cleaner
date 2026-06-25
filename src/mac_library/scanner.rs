@@ -166,6 +166,13 @@ fn resolve_status(kind: &EntryKind) -> Option<EntryStatus> {
                 Some(EntryStatus::OrphanedApp)
             }
         }
+        EntryKind::HelperBundle(bundle_ids) => {
+            if checker::is_helper_bundle_active(bundle_ids) {
+                Some(EntryStatus::ActiveOversized)
+            } else {
+                Some(EntryStatus::Unknown)
+            }
+        }
         EntryKind::SharedContainer(bundle_ids) => {
             if checker::is_any_bundle_id_installed(bundle_ids) {
                 Some(EntryStatus::ActiveOversized)

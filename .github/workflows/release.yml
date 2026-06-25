@@ -43,7 +43,7 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always   # coloured cargo output in logs
   BINARY_NAME: artifact-cleaner
-  BINARY_SHORT: ac
+  BINARY_SHORT: afc
   # Resolves to the tag name on a push trigger, or the manually entered version on workflow_dispatch
   RELEASE_VERSION: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
 

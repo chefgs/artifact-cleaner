@@ -25,6 +25,10 @@ pub fn is_any_bundle_id_installed(bundle_ids: &[String]) -> bool {
     bundle_ids.iter().any(|id| is_bundle_id_installed(id))
 }
 
+pub fn is_helper_bundle_active(bundle_ids: &[String]) -> bool {
+    bundle_ids.iter().any(|id| is_bundle_id_installed(id))
+}
+
 /// Returns true if a CLI tool with the given name is found in PATH.
 pub fn is_cli_installed(tool_name: &str) -> bool {
     // `which` exits 0 if found, non-zero if not
@@ -44,10 +48,12 @@ pub fn is_named_cache_active(cache_name: &str) -> bool {
 fn cli_candidates_for_cache(cache_name: &str) -> Vec<&str> {
     match cache_name {
         "Homebrew" => vec!["brew"],
+        "Yarn" => vec!["yarn"],
         "go-build" => vec!["go"],
         "ms-playwright" | "ms-playwright-go" => vec!["playwright"],
         "node-gyp" => vec!["node-gyp", "npm", "node"],
         "podman-desktop-updater" => vec!["podman"],
+        "pnpm" => vec!["pnpm"],
         "typescript" => vec!["tsc", "typescript"],
         "pip" => vec!["pip", "pip3"],
         _ => vec![cache_name],

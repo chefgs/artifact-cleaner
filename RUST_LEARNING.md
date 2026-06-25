@@ -1,5 +1,5 @@
 # Rust for Go, Python & Java Developers
-### Lessons from building `artifact-cleaner` and `ac`
+### Lessons from building `artifact-cleaner` and `afc`
 
 > Every concept is explained using real code from this project — not toy examples.
 > Read it alongside the source files in `src/`.
@@ -80,17 +80,19 @@ cd artifact-cleaner
 cargo build
 
 # 3. Run with --help to see what was built
-cargo run -- --help
+cargo run --bin afc -- --help
 # or, after build:
-./target/debug/artifact-cleaner --help
+./target/debug/afc --help
 
 # 4. Try a dry run in your home directory
-cargo run -- scan ~ --dry-run
+cargo run --bin afc -- scan ~ --dry-run
 
 # 5. Build optimised binary (slow compile, fast runtime)
 cargo build --release
-./target/release/ac mac-lib --dry-run
+./target/release/afc mac-lib --dry-run
 ```
+
+Debug builds are best while you are editing code: they compile faster, but the binary is larger and less optimized. Release builds take longer, but produce the compact native binary you would actually ship.
 
 ### What to expect from the compiler
 
@@ -232,7 +234,7 @@ use super::resolver::EntryKind;  // mac_library::resolver::EntryKind
 
 ### Two binaries from one source file
 
-This project builds two CLI commands (`artifact-cleaner` and `ac`) from a single `src/main.rs`. The trick is two `[[bin]]` entries in `Cargo.toml`:
+This project builds two CLI commands (`artifact-cleaner` and `afc`) from a single `src/main.rs`. The trick is two `[[bin]]` entries in `Cargo.toml`:
 
 ```toml
 [[bin]]
@@ -240,7 +242,7 @@ name = "artifact-cleaner"
 path = "src/main.rs"
 
 [[bin]]
-name = "ac"
+name = "afc"
 path = "src/main.rs"
 ```
 
@@ -249,7 +251,7 @@ Inside the code, `env!("CARGO_BIN_NAME")` resolves to whichever binary is being 
 ```rust
 #[command(name = env!("CARGO_BIN_NAME"), ...)]
 struct Cli { ... }
-// When built as "ac":       name = "ac"
+// When built as "afc":      name = "afc"
 // When built as "artifact-cleaner": name = "artifact-cleaner"
 ```
 
@@ -258,12 +260,33 @@ struct Cli { ... }
 ```bash
 cargo build           # compile (debug, fast compile, large binary)
 cargo build --release # compile (optimised, slow compile, small fast binary)
-cargo run             # compile + run
-cargo run -- --help   # compile + run with arguments (-- separates cargo args from program args)
+cargo run --bin afc -- --help   # compile + run the short binary with arguments
 cargo check           # type-check only — fastest way to catch errors
 cargo test            # run tests
 cargo add walkdir     # add a dependency (updates Cargo.toml automatically)
 ```
+
+### Why the release build is compact
+
+This repo's `Cargo.toml` has a custom release profile:
+
+```toml
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+```
+
+These settings matter for distributable CLI tools:
+
+- `lto = true` enables link-time optimisation so the compiler can optimise across module boundaries.
+- `codegen-units = 1` trades longer compile time for a smaller, better-optimised final binary.
+- `strip = true` removes debug symbols from release builds, which cuts binary size significantly.
+- `panic = "abort"` avoids stack unwinding machinery, which makes the binary smaller.
+
+The result is a compact native executable that does not depend on a separate language runtime when shipped to end users.
 
 ### Cargo.toml vs go.mod vs requirements.txt
 
@@ -1085,6 +1108,26 @@ fn mac_only() { ... }
 
 Use `#[cfg]` when you need platform-specific code, OS-specific APIs, or optional feature flags.
 
+### System commands with `std::process::Command`
+
+This project uses Rust's standard library to call system tools like `mdfind` and `which`:
+
+```rust
+use std::process::Command;
+
+Command::new("mdfind")
+    .arg("kMDItemCFBundleIdentifier == 'com.github.GitHubClient'")
+    .output()
+```
+
+Why this is a good Rust pattern:
+
+- Arguments are passed without invoking a shell, so quoting and injection problems are far less likely.
+- The return value includes stdout, stderr, and exit status in one typed struct.
+- Failures are explicit and can be handled with `Result` methods like `.map(...)` and `.unwrap_or(...)`.
+
+That makes system integration much safer than building shell strings manually.
+
 ---
 
 ## 15. Traits — Rust's Interfaces
@@ -1236,6 +1279,14 @@ std::env::var("HOME")             // Result<String, VarError>
 std::process::exit(1);            // exit with code
 ```
 
+This project leans heavily on three standard-library building blocks:
+
+- `std::fs` for directory reads, metadata lookups, and recursive deletion
+- `Path` / `PathBuf` for platform-safe path handling instead of raw strings
+- `std::process::Command` for macOS-specific ownership checks such as `mdfind` and `which`
+
+Combined with `walkdir`, that gives you a practical systems-programming toolkit without pulling in a large runtime.
+
 ---
 
 ## 18. External Crates (Dependencies)
@@ -1260,7 +1311,7 @@ std::process::exit(1);            // exit with code
 
 ### Subcommands with clap
 
-This project uses clap's derive API to build a multi-command CLI (`ac scan` and `ac mac-lib`). The pattern has three parts:
+This project uses clap's derive API to build a multi-command CLI (`afc scan` and `afc mac-lib`). The pattern has three parts:
 
 ```rust
 // 1. Top-level parser — holds the subcommand
@@ -1274,8 +1325,8 @@ struct Cli {
 // 2. Enum of subcommands — each variant holds its own Args struct
 #[derive(Subcommand, Debug)]
 enum Commands {
-    Scan(ScanArgs),    // `ac scan [OPTIONS] [PATH]`
-    MacLib(MacLibArgs), // `ac mac-lib [OPTIONS]`
+    Scan(ScanArgs),    // `afc scan [OPTIONS] [PATH]`
+    MacLib(MacLibArgs), // `afc mac-lib [OPTIONS]`
 }
 
 // 3. Args struct per subcommand
@@ -1301,7 +1352,7 @@ fn main() {
 }
 ```
 
-clap auto-generates `--help`, usage strings, and error messages for each subcommand. `env!("CARGO_BIN_NAME")` makes each binary self-identify when built as both `artifact-cleaner` and `ac`.
+clap auto-generates `--help`, usage strings, and error messages for each subcommand. `env!("CARGO_BIN_NAME")` makes each binary self-identify when built as both `artifact-cleaner` and `afc`.
 
 ### Adding a crate
 

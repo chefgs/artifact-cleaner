@@ -17,6 +17,7 @@ pub enum FolderSource {
 #[derive(Debug, Clone)]
 pub enum EntryKind {
     BundleId(String),
+    HelperBundle(Vec<String>),
     SharedContainer(Vec<String>),
     NamedCache(String),
     Excluded,
@@ -38,6 +39,11 @@ fn classify_container(name: &str) -> EntryKind {
     if name.starts_with("com.apple.") {
         return EntryKind::Excluded;
     }
+
+    if let Some(candidates) = helper_bundle_candidates(name) {
+        return EntryKind::HelperBundle(candidates);
+    }
+
     EntryKind::BundleId(name.to_string())
 }
 
@@ -72,6 +78,11 @@ fn classify_cache(name: &str) -> EntryKind {
     if name.starts_with("com.apple.") {
         return EntryKind::Excluded;
     }
+
+    if let Some(candidates) = helper_bundle_candidates(name) {
+        return EntryKind::HelperBundle(candidates);
+    }
+
     if looks_like_bundle_id(name) {
         return EntryKind::BundleId(name.to_string());
     }
@@ -121,6 +132,14 @@ fn strip_shared_suffix(name: &str) -> Option<String> {
     name.strip_suffix(".shared").map(|s| s.to_string())
 }
 
+fn strip_private_suffix(name: &str) -> Option<String> {
+    name.strip_suffix(".private").map(|s| s.to_string())
+}
+
+fn strip_family_suffix(name: &str) -> Option<String> {
+    name.strip_suffix(".family").map(|s| s.to_string())
+}
+
 fn shared_container_candidates(name: &str) -> Vec<String> {
     let mut candidates = vec![name.to_string()];
 
@@ -128,9 +147,75 @@ fn shared_container_candidates(name: &str) -> Vec<String> {
         candidates.push(base);
     }
 
+    if let Some(base) = strip_private_suffix(name) {
+        candidates.push(base);
+    }
+
+    if let Some(base) = strip_family_suffix(name) {
+        candidates.push(base);
+    }
+
     candidates.sort();
     candidates.dedup();
     candidates
+}
+
+fn helper_bundle_candidates(name: &str) -> Option<Vec<String>> {
+    let mut candidates = vec![name.to_string()];
+    let mut normalized = false;
+
+    if let Some(base) = strip_shipit_suffix(name) {
+        candidates.push(base);
+        normalized = true;
+    }
+
+    if let Some(base) = strip_dot_updater_suffix(name) {
+        candidates.push(base);
+        normalized = true;
+    }
+
+    if let Some(base) = strip_trailing_updater_token(name) {
+        candidates.push(base);
+        normalized = true;
+    }
+
+    if !normalized {
+        return None;
+    }
+
+    candidates.sort();
+    candidates.dedup();
+    Some(candidates)
+}
+
+fn strip_shipit_suffix(name: &str) -> Option<String> {
+    name.strip_suffix(".ShipIt").map(|s| s.to_string())
+}
+
+fn strip_dot_updater_suffix(name: &str) -> Option<String> {
+    name.strip_suffix(".Updater").map(|s| s.to_string())
+}
+
+fn strip_trailing_updater_token(name: &str) -> Option<String> {
+    if !name.ends_with("Updater") {
+        return None;
+    }
+
+    let parts: Vec<&str> = name.split('.').collect();
+    let last = parts.last()?;
+    if *last == "Updater" || !last.ends_with("Updater") {
+        return None;
+    }
+
+    let trimmed = last.strip_suffix("Updater")?;
+    if trimmed.is_empty() || parts.len() < 2 {
+        return None;
+    }
+
+    let mut rebuilt = parts[..parts.len() - 1].join(".");
+    rebuilt.push('.');
+    rebuilt.push_str(trimmed);
+    Some(rebuilt)
 }
 
 fn looks_like_bundle_id(name: &str) -> bool {
@@ -163,6 +248,22 @@ mod tests {
     }
 
     #[test]
+    fn group_container_with_private_suffix_is_treated_as_shared() {
+        let kind = classify(
+            "group.net.whatsapp.WhatsApp.private",
+            &FolderSource::GroupContainers,
+        );
+
+        match kind {
+            EntryKind::SharedContainer(candidates) => {
+                assert!(candidates.contains(&"net.whatsapp.WhatsApp.private".to_string()));
+                assert!(candidates.contains(&"net.whatsapp.WhatsApp".to_string()));
+            }
+            _ => panic!("expected shared container"),
+        }
+    }
+
+    #[test]
     fn team_id_prefixed_group_container_stays_conservative() {
         let kind = classify(
             "UBF8T346G9.OneDriveSyncClientSuite",
@@ -184,6 +285,32 @@ mod tests {
         match kind {
             EntryKind::NamedCache(name) => assert_eq!(name, "Homebrew"),
             _ => panic!("expected named cache"),
+        }
+    }
+
+    #[test]
+    fn helper_bundle_shipit_produces_parent_candidate() {
+        let kind = classify("com.github.GitHubClient.ShipIt", &FolderSource::Caches);
+
+        match kind {
+            EntryKind::HelperBundle(candidates) => {
+                assert!(candidates.contains(&"com.github.GitHubClient.ShipIt".to_string()));
+                assert!(candidates.contains(&"com.github.GitHubClient".to_string()));
+            }
+            _ => panic!("expected helper bundle"),
+        }
+    }
+
+    #[test]
+    fn helper_bundle_updater_produces_parent_candidate() {
+        let kind = classify("com.microsoft.OneDriveUpdater", &FolderSource::Caches);
+
+        match kind {
+            EntryKind::HelperBundle(candidates) => {
+                assert!(candidates.contains(&"com.microsoft.OneDriveUpdater".to_string()));
+                assert!(candidates.contains(&"com.microsoft.OneDrive".to_string()));
+            }
+            _ => panic!("expected helper bundle"),
         }
     }
 }

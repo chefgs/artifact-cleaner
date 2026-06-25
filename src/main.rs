@@ -48,7 +48,7 @@ struct Cli {
 
 // ─── RUST LESSON — Subcommands ───────────────────────────────────────────────
 // #[derive(Subcommand)] generates a clap subcommand enum.
-// Each variant becomes a subcommand: `ac scan`, `ac mac-lib`.
+// Each variant becomes a subcommand: `afc scan`, `afc mac-lib`.
 // #[derive(Args)] on a separate struct lets each subcommand own its flags.
 // This is cleaner than one giant struct as commands grow.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,7 +110,7 @@ pub struct MacLibArgs {
     #[arg(short, long, default_value_t = false)]
     pub dry_run: bool,
 
-    /// Delete without asking for confirmation
+    /// Accepted for compatibility; mac-lib still asks for confirmation before deleting
     #[arg(short, long, default_value_t = false)]
     pub yes: bool,
 }

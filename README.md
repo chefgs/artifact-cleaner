@@ -16,7 +16,7 @@ Built in Rust. Single binary. No dependencies.
 
 ## Recent updates
 
-- Added `ac mac-lib` for scanning `~/Library/Caches`, `~/Library/Containers`, and `~/Library/Group Containers` for orphaned app and CLI data on macOS.
+- Added `afc mac-lib` for scanning `~/Library/Caches`, `~/Library/Containers`, and `~/Library/Group Containers` for orphaned app and CLI data on macOS.
 - Added release install scripts for macOS, Linux, and Windows with automatic platform detection and SHA256 verification.
 - Kept CLI version output tied to Cargo package metadata so release binaries and source builds report the same version.
 
@@ -24,7 +24,7 @@ Built in Rust. Single binary. No dependencies.
 
 The tool always shows what it found before deleting anything. By default, destructive cleanup requires an interactive confirmation prompt, and `--dry-run` previews what would be deleted without removing files.
 
-For scripts and CI, deletion without a prompt requires the explicit `--yes` flag.
+For workspace scans, deletion without a prompt requires the explicit `--yes` flag. For `mac-lib`, the orphaned list is always shown and deletion still requires interactive confirmation.
 
 ## Install
 
@@ -39,7 +39,7 @@ curl -fsSL https://raw.githubusercontent.com/chefgs/artifact-cleaner/main/instal
 
 Install a specific release:
 ```bash
-VERSION=v0.6.0 curl -fsSL https://raw.githubusercontent.com/chefgs/artifact-cleaner/main/install.sh | bash
+VERSION=v0.9.0 curl -fsSL https://raw.githubusercontent.com/chefgs/artifact-cleaner/main/install.sh | bash
 ```
 
 Install to a custom directory:
@@ -54,7 +54,7 @@ irm https://raw.githubusercontent.com/chefgs/artifact-cleaner/main/install.ps1 |
 
 Install a specific release:
 ```powershell
-$env:VERSION = "v0.6.0"
+$env:VERSION = "v0.9.0"
 irm https://raw.githubusercontent.com/chefgs/artifact-cleaner/main/install.ps1 | iex
 ```
 
@@ -125,36 +125,56 @@ Requires a current Rust toolchain with Cargo. The CLI version is sourced from `C
 
 ```bash
 artifact-cleaner --version
-ac --version
+afc --version
 artifact-cleaner --help
 ```
+
+## Build locally
+
+Use a debug build while developing:
+
+```bash
+cargo build
+cargo run --bin afc -- --help
+./target/debug/afc --help
+```
+
+Build an optimized release binary when you want the compact distributable build:
+
+```bash
+cargo build --release
+./target/release/afc --help
+./target/release/artifact-cleaner --help
+```
+
+`cargo build` compiles faster and is better for local iteration. `cargo build --release` applies the release profile in `Cargo.toml`, so the binary is smaller and faster. For this project, Rust ships as a compact native binary with no separate runtime dependency.
 
 **Not sure which binary to pick?** See the [platform guide in INSTALL.md](./INSTALL.md#before-you-start--find-the-right-binary).
 
 ## Usage
 
-Both `artifact-cleaner` (full name) and `ac` (short alias) are installed and identical.
+Both `artifact-cleaner` (full name) and `afc` (short alias) are installed and identical.
 
 ### Scan workspace for stale build artifacts
 
 ```bash
 # Scan current directory, 2-month threshold (default)
-ac scan
+afc scan
 
 # Scan a specific workspace
-ac scan ~/Documents/github
+afc scan ~/Documents/github
 
 # Use a 3-month threshold
-ac scan ~/Documents/github --months 3
+afc scan ~/Documents/github --months 3
 
 # Dry run — preview without deleting
-ac scan ~/Documents/github --dry-run
+afc scan ~/Documents/github --dry-run
 
 # Skip confirmation prompt (for scripts/CI)
-ac scan ~/Documents/github --yes
+afc scan ~/Documents/github --yes
 
 # Target specific artifact types only
-ac scan ~/Documents/github --types node_modules,.next
+afc scan ~/Documents/github --types node_modules,.next
 ```
 
 ### Scan macOS Library for orphaned data (macOS only)
@@ -163,22 +183,22 @@ ac scan ~/Documents/github --types node_modules,.next
 
 ```bash
 # Scan Caches, Containers, and Group Containers (default: items > 100 MB)
-ac mac-lib
+afc mac-lib
 
 # Preview without deleting
-ac mac-lib --dry-run
+afc mac-lib --dry-run
 
 # Set a custom size threshold (200 MB)
-ac mac-lib --min-size 200
+afc mac-lib --min-size 200
 
 # Scan only Caches
-ac mac-lib --dirs caches
+afc mac-lib --dirs caches
 
 # Scan Caches and Containers only
-ac mac-lib --dirs caches,containers
+afc mac-lib --dirs caches,containers
 
-# Skip confirmation prompt
-ac mac-lib --yes
+# `-y` is accepted for compatibility, but mac-lib still asks before deleting
+afc mac-lib --yes
 ```
 
 ## Benchmark
@@ -236,14 +256,14 @@ src/mac_library/
 ## Commands
 
 ```
-ac <COMMAND>
+afc <COMMAND>
 
 Commands:
   scan     Scan a workspace directory for stale build artifacts
   mac-lib  Scan macOS Library folders for orphaned app/tool data
   help     Print help for any command
 
-ac scan [OPTIONS] [PATH]
+afc scan [OPTIONS] [PATH]
   [PATH]                   Workspace directory to scan [default: .]
   -m, --months <MONTHS>    Stale threshold in months [default: 2]
   -t, --types <TYPES>      Artifact types [default: node_modules,.next,dist,build,.terraform]
@@ -251,11 +271,11 @@ ac scan [OPTIONS] [PATH]
   -y, --yes                Skip confirmation prompt
       --no-interactive     Non-interactive output only
 
-ac mac-lib [OPTIONS]
+afc mac-lib [OPTIONS]
       --min-size <MB>      Minimum item size to flag in MB [default: 100]
       --dirs <DIRS>        Directories to scan: caches,containers,groups [default: all]
   -d, --dry-run            Preview without deleting
-  -y, --yes                Skip confirmation prompt
+  -y, --yes                Accepted for compatibility; mac-lib still asks before deleting
 ```
 
 ## What it skips (always safe)

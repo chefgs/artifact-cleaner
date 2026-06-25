@@ -24,6 +24,8 @@ use indicatif::{ProgressBar, ProgressStyle};
 use scanner::EntryStatus;
 #[cfg(target_os = "macos")]
 use std::fs;
+#[cfg(target_os = "macos")]
+use std::io::IsTerminal;
 
 #[cfg(not(target_os = "macos"))]
 pub fn run(_args: &MacLibArgs) {
@@ -110,16 +112,24 @@ pub fn run(args: &MacLibArgs) {
         return;
     }
 
-    let confirmed = args.yes
-        || Confirm::new()
-            .with_prompt(format!(
-                "  Delete {} orphaned items and free {}?",
-                orphaned.len(),
-                format_size(orphaned_bytes, DECIMAL)
-            ))
-            .default(false)
-            .interact()
-            .unwrap_or(false);
+    if !std::io::stdin().is_terminal() {
+        println!(
+            "  {} Cannot confirm deletion in a non-interactive terminal. Nothing was deleted.",
+            "✗".yellow()
+        );
+        println!();
+        return;
+    }
+
+    let confirmed = Confirm::new()
+        .with_prompt(format!(
+            "  Delete {} orphaned items and free {}?",
+            orphaned.len(),
+            format_size(orphaned_bytes, DECIMAL)
+        ))
+        .default(false)
+        .interact()
+        .unwrap_or(false);
 
     if !confirmed {
         println!("  {} Aborted — nothing deleted.", "✗".yellow());
