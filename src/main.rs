@@ -38,6 +38,9 @@ Scans a workspace directory for stale build artifact folders
 (node_modules, .next, dist, build, .terraform) and removes them
 from projects that haven't been updated within a configurable threshold.
 
+Use `size` inside a project to inspect current artifact folder sizes
+without stale filtering or deletion prompts.
+
 Python virtual environments (.venv, venv, env) are always excluded.
 "
 )]
@@ -56,6 +59,8 @@ struct Cli {
 enum Commands {
     /// Scan a workspace directory for stale build artifacts
     Scan(ScanArgs),
+    /// Show artifact folder sizes directly under the current directory
+    Size(SizeArgs),
     /// Scan macOS Library folders for orphaned app/tool data
     MacLib(MacLibArgs),
 }
@@ -90,6 +95,22 @@ struct ScanArgs {
     /// Show all found artifacts without prompting (non-interactive)
     #[arg(long, default_value_t = false)]
     no_interactive: bool,
+}
+
+#[derive(Args, Debug)]
+struct SizeArgs {
+    /// Directory to inspect (default: current directory)
+    #[arg(default_value = ".")]
+    path: PathBuf,
+
+    /// Artifact folder types to size
+    #[arg(
+        short,
+        long,
+        value_delimiter = ',',
+        default_values = scanner::DEFAULT_ARTIFACTS
+    )]
+    types: Vec<String>,
 }
 
 #[derive(Args, Debug)]
@@ -129,6 +150,7 @@ fn main() {
 
     match cli.command {
         Commands::Scan(args) => run_scan(args),
+        Commands::Size(args) => run_size(args),
         Commands::MacLib(args) => mac_library::run(&args),
     }
 }
@@ -240,4 +262,52 @@ fn run_scan(cli: ScanArgs) {
     let paths: Vec<PathBuf> = artifacts.into_iter().map(|a| a.path).collect();
     let result = cleaner::delete_artifacts(paths, false);
     display::print_delete_result(&result, false);
+}
+
+fn run_size(cli: SizeArgs) {
+    let directory = cli.path.canonicalize().unwrap_or_else(|_| {
+        eprintln!(
+            "{} Path not found: {}",
+            "Error:".red().bold(),
+            cli.path.display()
+        );
+        std::process::exit(1);
+    });
+
+    if !directory.is_dir() {
+        eprintln!(
+            "{} Not a directory: {}",
+            "Error:".red().bold(),
+            directory.display()
+        );
+        std::process::exit(1);
+    }
+
+    let spinner = ProgressBar::new_spinner();
+    spinner.set_style(
+        ProgressStyle::with_template("  {spinner:.cyan} {msg}")
+            .unwrap()
+            .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]),
+    );
+    spinner.enable_steady_tick(std::time::Duration::from_millis(80));
+    spinner.set_message(format!("Sizing artifacts in {}...", directory.display()));
+
+    let sizes = scanner::scan_current_directory(&directory, &cli.types);
+
+    spinner.finish_and_clear();
+
+    if sizes.is_empty() {
+        println!();
+        println!(
+            "  {} No matching artifact folders found in {}",
+            "✓".green().bold(),
+            directory.display()
+        );
+        println!();
+        return;
+    }
+
+    let total_bytes: u64 = sizes.iter().map(|s| s.size_bytes).sum();
+    display::print_size_header(&directory.to_string_lossy(), sizes.len(), total_bytes);
+    display::print_size_results(&sizes);
 }

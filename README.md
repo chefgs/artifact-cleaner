@@ -16,6 +16,7 @@ Built in Rust. Single binary. No dependencies.
 
 ## Recent updates
 
+- Added `afc size` for checking current project artifact sizes like `node_modules` and `.next` without stale filtering.
 - Added `afc mac-lib` for scanning `~/Library/Caches`, `~/Library/Containers`, and `~/Library/Group Containers` for orphaned app and CLI data on macOS.
 - Added release install scripts for macOS, Linux, and Windows with automatic platform detection and SHA256 verification.
 - Kept CLI version output tied to Cargo package metadata so release binaries and source builds report the same version.
@@ -177,6 +178,19 @@ afc scan ~/Documents/github --yes
 afc scan ~/Documents/github --types node_modules,.next
 ```
 
+### Check current project artifact sizes
+
+```bash
+# Size matching artifact folders directly under the current directory
+afc size
+
+# Size a specific project directory
+afc size ~/Documents/github/my-next-app
+
+# Check only JavaScript-heavy artifacts
+afc size --types node_modules,.next
+```
+
 ### Scan macOS Library for orphaned data (macOS only)
 
 `mac-lib` only auto-deletes high-confidence orphaned app containers. Shared containers and ambiguous named caches are shown as cautionary items and are not deleted automatically.
@@ -260,6 +274,7 @@ afc <COMMAND>
 
 Commands:
   scan     Scan a workspace directory for stale build artifacts
+  size     Show artifact folder sizes directly under the current directory
   mac-lib  Scan macOS Library folders for orphaned app/tool data
   help     Print help for any command
 
@@ -270,6 +285,10 @@ afc scan [OPTIONS] [PATH]
   -d, --dry-run            Preview without deleting
   -y, --yes                Skip confirmation prompt
       --no-interactive     Non-interactive output only
+
+afc size [OPTIONS] [PATH]
+  [PATH]                   Directory to inspect [default: .]
+  -t, --types <TYPES>      Artifact types [default: node_modules,.next,dist,build,.terraform]
 
 afc mac-lib [OPTIONS]
       --min-size <MB>      Minimum item size to flag in MB [default: 100]

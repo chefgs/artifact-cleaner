@@ -1,7 +1,7 @@
 // display.rs — terminal output formatting
 
 use crate::cleaner::DeleteResult;
-use crate::scanner::ArtifactFolder;
+use crate::scanner::{ArtifactFolder, DirectorySize};
 use colored::Colorize;
 use humansize::{DECIMAL, format_size};
 
@@ -65,6 +65,48 @@ pub fn print_results(artifacts: &[ArtifactFolder]) {
             artifact_type,
             artifact.size_human.red(),
             artifact.last_modified.dimmed(),
+        );
+    }
+    println!();
+}
+
+pub fn print_size_header(directory: &str, total: usize, total_bytes: u64) {
+    println!();
+    println!("{}", "  Artifact Sizes".bold().cyan());
+    println!("  {}", "─".repeat(70).dimmed());
+    println!("  Directory  : {}", directory.yellow());
+    println!(
+        "  Found      : {} folders · {}",
+        total.to_string().bold(),
+        format_size(total_bytes, DECIMAL).red().bold()
+    );
+    println!("  {}", "─".repeat(70).dimmed());
+    println!();
+}
+
+pub fn print_size_results(sizes: &[DirectorySize]) {
+    if sizes.is_empty() {
+        println!(
+            "  {} No matching artifact folders found.",
+            "✓".green().bold()
+        );
+        return;
+    }
+
+    println!(
+        "  {:<35} {:>10}  {}",
+        "Folder".bold().underline(),
+        "Size".bold().underline(),
+        "Path".bold().underline(),
+    );
+    println!("  {}", "─".repeat(70).dimmed());
+
+    for item in sizes.iter() {
+        println!(
+            "  {:<35} {:>10}  {}",
+            truncate(&item.name, 33),
+            item.size_human.red(),
+            item.path.display().to_string().dimmed(),
         );
     }
     println!();

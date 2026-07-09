@@ -26,6 +26,14 @@ pub struct ArtifactFolder {
     pub last_modified: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct DirectorySize {
+    pub path: PathBuf,
+    pub name: String,
+    pub size_bytes: u64,
+    pub size_human: String,
+}
+
 // ─── RUST LESSON — Constants ──────────────────────────────────────────────────
 // `const` is evaluated at compile time.
 // `&[&str]` is a slice (a view into a fixed array) of borrowed string refs.
@@ -158,6 +166,39 @@ pub fn scan_workspace(path: &Path, months: u32, artifact_types: &[String]) -> Ve
     }
 
     // Sort by size descending — biggest space wasters first
+    results.sort_by_key(|b| std::cmp::Reverse(b.size_bytes));
+    results
+}
+
+pub fn scan_current_directory(path: &Path, artifact_types: &[String]) -> Vec<DirectorySize> {
+    let mut results: Vec<DirectorySize> = fs::read_dir(path)
+        .ok()
+        .into_iter()
+        .flatten()
+        .filter_map(|entry| entry.ok())
+        .filter_map(|entry| {
+            let entry_path = entry.path();
+            if !entry_path.is_dir() {
+                return None;
+            }
+
+            let folder_name = entry_path.file_name()?.to_str()?.to_string();
+            if !artifact_types.iter().any(|t| t == &folder_name) {
+                return None;
+            }
+
+            let size_bytes = compute_size(&entry_path);
+            let size_human = format_size(size_bytes, DECIMAL);
+
+            Some(DirectorySize {
+                path: entry_path,
+                name: folder_name,
+                size_bytes,
+                size_human,
+            })
+        })
+        .collect();
+
     results.sort_by_key(|b| std::cmp::Reverse(b.size_bytes));
     results
 }
