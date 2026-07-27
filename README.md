@@ -250,6 +250,15 @@ This repo is designed to help Go, Python, and Java developers understand Rust th
 
 Or start even simpler: [Rust for Backend Developers](articles/rust-for-backend-developers.md).
 
+### AI, cloud, and IoT security guides
+
+These practical guides focus on threats, solutions, and an implementation path for systems that integrate Rust with AI and infrastructure:
+
+1. [Agentic AI Security Forecast: Building Control Planes That Can Survive Autonomy](articles/agentic-ai-security-forecast.md)
+2. [Protecting AI Cloud Infrastructure: From GPU Cluster to Production Control Plane](articles/ai-cloud-infrastructure-protection.md)
+3. [Rust for Secure IoT and Edge AI: Integrating Devices Without Creating a Botnet](articles/rust-iot-security-integration.md)
+4. [Rust Tools for Protecting AI Workload Deployments](articles/rust-tools-for-ai-workload-protection.md)
+
 ### Suggested source reading order
 
 ```
