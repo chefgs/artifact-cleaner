@@ -71,7 +71,7 @@ jobs:
   prepare-release:
     name: Prepare GitHub release
     needs: [validate-version]
-    if: success() || needs.validate-version.result == 'skipped'
+    if: needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped'
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -80,10 +80,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view "${{ env.RELEASE_VERSION }}" >/dev/null 2>&1; then
+          if gh release view "${{ env.RELEASE_VERSION }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
             echo "Release ${{ env.RELEASE_VERSION }} already exists."
           else
             gh release create "${{ env.RELEASE_VERSION }}" \
+              --repo "${{ github.repository }}" \
               --target "$GITHUB_SHA" \
               --title "${{ env.RELEASE_VERSION }}" \
               --generate-notes
@@ -99,7 +100,7 @@ jobs:
   build-macos:
     name: macOS — ${{ matrix.target }}
     needs: [validate-version, prepare-release]
-    if: success() || needs.validate-version.result == 'skipped'
+    if: needs.prepare-release.result == 'success' && (needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped')
     runs-on: macos-14           # Apple Silicon runner (M1) — free on GitHub Actions
     permissions:
       contents: write
@@ -161,7 +162,7 @@ jobs:
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ env.RELEASE_VERSION }}" "${{ env.ASSET }}" "${{ env.ASSET_SHA }}" --clobber
+        run: gh release upload "${{ env.RELEASE_VERSION }}" "${{ env.ASSET }}" "${{ env.ASSET_SHA }}" --clobber --repo "${{ github.repository }}"
 
 
   # ── Linux ────────────────────────────────────────────────────────────────────
@@ -183,7 +184,7 @@ jobs:
   build-linux:
     name: Linux — ${{ matrix.target }}
     needs: [validate-version, prepare-release]
-    if: success() || needs.validate-version.result == 'skipped'
+    if: needs.prepare-release.result == 'success' && (needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped')
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -245,7 +246,7 @@ jobs:
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ env.RELEASE_VERSION }}" "${{ env.ASSET }}" "${{ env.ASSET_SHA }}" --clobber
+        run: gh release upload "${{ env.RELEASE_VERSION }}" "${{ env.ASSET }}" "${{ env.ASSET_SHA }}" --clobber --repo "${{ github.repository }}"
 
 
   # ── Windows ──────────────────────────────────────────────────────────────────
@@ -271,7 +272,7 @@ jobs:
   build-windows:
     name: Windows — ${{ matrix.target }}
     needs: [validate-version, prepare-release]
-    if: success() || needs.validate-version.result == 'skipped'
+    if: needs.prepare-release.result == 'success' && (needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped')
     runs-on: windows-latest
     permissions:
       contents: write
@@ -319,7 +320,7 @@ jobs:
       - name: Upload to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ env.RELEASE_VERSION }}" "${{ env.ASSET }}" "${{ env.ASSET_SHA }}" --clobber
+        run: gh release upload "${{ env.RELEASE_VERSION }}" "${{ env.ASSET }}" "${{ env.ASSET_SHA }}" --clobber --repo "${{ github.repository }}"
 
 
   # ── Merge all checksums into one checksums.txt ───────────────────────────────
@@ -357,7 +358,7 @@ jobs:
       - name: Upload checksums.txt to release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "${{ env.RELEASE_VERSION }}" checksums.txt --clobber
+        run: gh release upload "${{ env.RELEASE_VERSION }}" checksums.txt --clobber --repo "${{ github.repository }}"
 
   # ── Gate job — confirms everything succeeded ──────────────────────────────────
   release-complete:
