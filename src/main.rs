@@ -41,7 +41,14 @@ from projects that haven't been updated within a configurable threshold.
 Use `size` inside a project to inspect current artifact folder sizes
 without stale filtering or deletion prompts.
 
+Use `--types` with a comma-separated list to target additional directory
+names, such as target, coverage, .gradle, or __pycache__.
+`scan` and `size` match directories only; they do not select individual
+files or filter project artifacts by a minimum size.
+
 Python virtual environments (.venv, venv, env) are always excluded.
+
+Run `afc <command> --help` for command-specific options and examples.
 "
 )]
 struct Cli {
@@ -57,15 +64,18 @@ struct Cli {
 // ─────────────────────────────────────────────────────────────────────────────
 #[derive(Subcommand, Debug)]
 enum Commands {
-    /// Scan a workspace directory for stale build artifacts
+    /// Find and remove stale artifact directories in a workspace
     Scan(ScanArgs),
-    /// Show artifact folder sizes directly under the current directory
+    /// Show artifact directory sizes directly under a project directory
     Size(SizeArgs),
-    /// Scan macOS Library folders for orphaned app/tool data
+    /// Scan macOS Library folders for orphaned app/tool data (macOS only)
     MacLib(MacLibArgs),
 }
 
 #[derive(Args, Debug)]
+#[command(
+    after_help = "EXAMPLES:\n  afc scan ~/projects --dry-run\n  afc scan ~/projects --months 6 --types target,coverage,.gradle\n  afc scan . --types node_modules,.next --yes\n\nNOTES:\n  --types accepts comma-separated directory names only.\n  There is no minimum-size filter for workspace artifacts."
+)]
 struct ScanArgs {
     /// Workspace directory to scan (default: current directory)
     #[arg(default_value = ".")]
@@ -75,7 +85,7 @@ struct ScanArgs {
     #[arg(short, long, default_value_t = 2)]
     months: u32,
 
-    /// Artifact folder types to target
+    /// Comma-separated artifact directory names to target
     #[arg(
         short,
         long,
@@ -98,12 +108,15 @@ struct ScanArgs {
 }
 
 #[derive(Args, Debug)]
+#[command(
+    after_help = "EXAMPLES:\n  afc size\n  afc size ~/projects/my-app --types target,node_modules,coverage\n\nNOTES:\n  --types accepts directory names only; individual files are not reported."
+)]
 struct SizeArgs {
     /// Directory to inspect (default: current directory)
     #[arg(default_value = ".")]
     path: PathBuf,
 
-    /// Artifact folder types to size
+    /// Comma-separated artifact directory names to size
     #[arg(
         short,
         long,
@@ -114,6 +127,9 @@ struct SizeArgs {
 }
 
 #[derive(Args, Debug)]
+#[command(
+    after_help = "EXAMPLES:\n  afc mac-lib --dry-run\n  afc mac-lib --min-size 500 --dirs caches,containers\n\nNOTE:\n  --min-size is measured in MB and applies only to macOS Library entries,\n  not to the workspace artifacts selected by scan or size."
+)]
 pub struct MacLibArgs {
     /// Only flag items larger than this size in MB
     #[arg(long, default_value_t = 100)]

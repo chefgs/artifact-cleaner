@@ -5,6 +5,22 @@ on macOS, Linux, and Windows.
 
 ---
 
+## What works on each platform
+
+The Windows and Linux downloads are intentional: `scan` and `size` are portable and clean project artifact folders on all supported operating systems.
+
+| Command | macOS | Linux | Windows |
+|---|---:|---:|---:|
+| `scan` | Yes | Yes | Yes |
+| `size` | Yes | Yes | Yes |
+| `mac-lib` | Yes | No | No |
+
+`mac-lib` is the sole macOS-only feature. It scans `~/Library/Caches`, `~/Library/Containers`, and `~/Library/Group Containers`, which have no direct Linux or Windows equivalent in this tool. On Linux and Windows, `mac-lib` exits before it scans or removes anything.
+
+For project cleanup on any platform, `scan` defaults to `node_modules`, `.next`, `dist`, `build`, and `.terraform`. Add other folder names, including Rust's `target`, with `--types`.
+
+---
+
 ## One-liner install (recommended)
 
 The install scripts automatically detect your OS and CPU architecture, download
@@ -581,9 +597,21 @@ artifact-cleaner --version
 # Check the full help
 artifact-cleaner --help
 
-# Safe test — dry run on your home directory, no files deleted
-artifact-cleaner ~ --months 3 --dry-run
+# Safe test — preview stale default artifact directories; nothing is deleted
+artifact-cleaner scan ~ --months 3 --dry-run
+
+# See examples and every option for a command
+artifact-cleaner scan --help
 ```
+
+`scan` and `size` accept extra artifact directory names through `--types`, for example:
+
+```bash
+artifact-cleaner scan ~/projects --types target,coverage,.gradle --dry-run
+artifact-cleaner size ~/projects/my-app --types target,node_modules,coverage
+```
+
+`--types` selects directories only. The CLI does not currently find individual files or filter workspace artifacts by a minimum size. `mac-lib --min-size 500` is available on macOS only and filters macOS Library entries in MB.
 
 Expected output:
 ```

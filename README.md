@@ -6,11 +6,25 @@
 [![Rust 2024](https://img.shields.io/badge/Rust-2024-orange.svg)](https://www.rust-lang.org/)
 [![Contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg)](CONTRIBUTING.md)
 
-A Rust-based CLI tool for scanning and cleaning common development artifacts such as `node_modules`, `.next`, `dist`, `build`, `target`, `.terraform`, and cache folders.
+A Rust-based CLI tool for scanning and cleaning stale project artifacts. By default it targets `node_modules`, `.next`, `dist`, `build`, and `.terraform`; use `--types` to add other directory names such as `target`.
 
 This project is also used as a practical Rust learning project for Go, Python, and Java developers.
 
 Built in Rust. Single binary. No dependencies.
+
+## Platform support
+
+The project began on macOS, but the workspace cleanup commands are supported on macOS, Linux, and Windows. This is why releases include native installers and binaries for all three operating systems.
+
+| Command | macOS | Linux | Windows |
+|---|---:|---:|---:|
+| `scan` — find and remove stale project artifacts | Yes | Yes | Yes |
+| `size` — report artifact directory sizes | Yes | Yes | Yes |
+| `mac-lib` — inspect orphaned `~/Library` app data | Yes | No | No |
+
+`scan` and `size` use portable filesystem APIs and match directory names inside the workspace supplied by the user, so their cleanup behavior is not tied to macOS. `mac-lib` deliberately uses macOS Library locations and macOS tools; on Linux and Windows it is present in the CLI for consistency but exits without scanning or deleting anything.
+
+Windows and Linux currently do not have equivalents of `mac-lib` for system or user cache cleanup. Their installers are for the cross-platform project-artifact cleanup commands above.
 
 ![Artifact Cleaner CLI cleaning development artifacts and reclaiming storage](assets/repo-image.png)
 
@@ -158,6 +172,8 @@ Both `artifact-cleaner` (full name) and `afc` (short alias) are installed and id
 
 ### Scan workspace for stale build artifacts
 
+`scan` checks projects whose top-level directory has not been modified within the selected age threshold. It finds matching **directories**, not individual files. The default directory names are `node_modules`, `.next`, `dist`, `build`, and `.terraform`.
+
 ```bash
 # Scan current directory, 2-month threshold (default)
 afc scan
@@ -176,7 +192,15 @@ afc scan ~/Documents/github --yes
 
 # Target specific artifact types only
 afc scan ~/Documents/github --types node_modules,.next
+
+# Include Rust, Python, Java, and test/build output directories
+afc scan ~/Documents/github --types target,__pycache__,.gradle,coverage
+
+# Preview a more conservative cleanup: only projects stale for 6 months
+afc scan ~/Documents/github --months 6 --types target,coverage --dry-run
 ```
+
+`--types` accepts comma-separated directory names. It does not match individual files, and `scan` does not currently offer a minimum-size filter for workspace artifacts. Use `--dry-run` before `--yes` when adding a new directory type.
 
 ### Check current project artifact sizes
 
@@ -189,7 +213,12 @@ afc size ~/Documents/github/my-next-app
 
 # Check only JavaScript-heavy artifacts
 afc size --types node_modules,.next
+
+# Check Rust, Java, and test artifacts in one project
+afc size . --types target,.gradle,coverage
 ```
+
+Like `scan`, `size` reports directories only. It cannot currently list files larger than a chosen size.
 
 ### Scan macOS Library for orphaned data (macOS only)
 
@@ -205,6 +234,9 @@ afc mac-lib --dry-run
 # Set a custom size threshold (200 MB)
 afc mac-lib --min-size 200
 
+# Show only macOS Library entries of 500 MB or more
+afc mac-lib --min-size 500 --dry-run
+
 # Scan only Caches
 afc mac-lib --dirs caches
 
@@ -213,6 +245,20 @@ afc mac-lib --dirs caches,containers
 
 # `-y` is accepted for compatibility, but mac-lib still asks before deleting
 afc mac-lib --yes
+```
+
+`--min-size` is measured in MB and applies only to `mac-lib`; it does not filter workspace artifacts in `scan` or `size`.
+
+### Discover commands and options
+
+```bash
+# General command reference
+afc --help
+
+# Command-specific options and examples
+afc scan --help
+afc size --help
+afc mac-lib --help
 ```
 
 ## Benchmark
@@ -249,15 +295,6 @@ This repo is designed to help Go, Python, and Java developers understand Rust th
 3. [Part 3: Production Patterns in a Real CLI](articles/rust-learning-part-3-production-patterns.md)
 
 Or start even simpler: [Rust for Backend Developers](articles/rust-for-backend-developers.md).
-
-### AI, cloud, and IoT security guides
-
-These practical guides focus on threats, solutions, and an implementation path for systems that integrate Rust with AI and infrastructure:
-
-1. [Agentic AI Security Forecast: Building Control Planes That Can Survive Autonomy](articles/agentic-ai-security-forecast.md)
-2. [Protecting AI Cloud Infrastructure: From GPU Cluster to Production Control Plane](articles/ai-cloud-infrastructure-protection.md)
-3. [Rust for Secure IoT and Edge AI: Integrating Devices Without Creating a Botnet](articles/rust-iot-security-integration.md)
-4. [Rust Tools for Protecting AI Workload Deployments](articles/rust-tools-for-ai-workload-protection.md)
 
 ### Suggested source reading order
 
