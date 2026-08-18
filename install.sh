@@ -25,6 +25,7 @@ set -euo pipefail
 # ── Configuration ─────────────────────────────────────────────────────────────
 REPO="chefgs/artifact-cleaner"
 BINARY="artifact-cleaner"
+SHORT_BINARY="afc"
 VERSION="${VERSION:-}"        # empty = fetch latest from GitHub API
 NO_VERIFY="${NO_VERIFY:-0}"  # set to 1 to skip checksum (not recommended)
 ARTIFACT_CLEANER_INSTALL_TMP_DIR=""
@@ -350,12 +351,13 @@ main() {
   info "Extracting..."
   tar -xzf "$archive_path" -C "$tmp_dir"
 
-  # Find the extracted binary
-  local extracted_binary
+  # Find both extracted CLI names. Release archives include both binaries.
+  local extracted_binary extracted_short_binary
   extracted_binary=$(find "$tmp_dir" -type f -name "$BINARY" | head -1)
+  extracted_short_binary=$(find "$tmp_dir" -type f -name "$SHORT_BINARY" | head -1)
 
-  if [ -z "$extracted_binary" ]; then
-    error "Could not find binary '$BINARY' in extracted archive"
+  if [ -z "$extracted_binary" ] || [ -z "$extracted_short_binary" ]; then
+    error "Could not find '$BINARY' and '$SHORT_BINARY' in extracted archive"
   fi
 
   # Resolve install directory and create it if needed
@@ -363,23 +365,28 @@ main() {
   mkdir -p "$install_dir"
 
   binary_path="$install_dir/$BINARY"
+  short_binary_path="$install_dir/$SHORT_BINARY"
 
   # Install — move binary to target location
   # If /usr/local/bin is not writable without sudo, try sudo
   if [ -w "$install_dir" ]; then
     cp "$extracted_binary" "$binary_path"
     chmod +x "$binary_path"
+    cp "$extracted_short_binary" "$short_binary_path"
+    chmod +x "$short_binary_path"
   else
     info "Installing to $install_dir (sudo required)..."
     sudo cp "$extracted_binary" "$binary_path"
     sudo chmod +x "$binary_path"
+    sudo cp "$extracted_short_binary" "$short_binary_path"
+    sudo chmod +x "$short_binary_path"
   fi
 
   # Remove Gatekeeper quarantine on macOS
   remove_quarantine "$binary_path"
 
   echo ""
-  success "Installed to $binary_path"
+  success "Installed $BINARY and $SHORT_BINARY to $install_dir"
 
   # ── PATH check ───────────────────────────────────────────────────────────────
   # Warn the user if the install directory is not in their current PATH.
@@ -410,8 +417,14 @@ main() {
 
   echo ""
   echo "  ${BOLD}Quick start:${RESET}"
+  echo "  ${BOLD}Full CLI name:${RESET}"
   echo "    $BINARY --help"
-  echo "    $BINARY ~/Documents/github --dry-run"
+  echo "    $BINARY scan ~/Documents/github --dry-run"
+  echo ""
+  echo "  ${BOLD}Short alias (afc):${RESET}"
+  echo "    afc --help"
+  echo "    afc size ~/Documents/github/my-project"
+  echo "    afc mac-lib --dry-run"
   echo ""
 }
 

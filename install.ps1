@@ -22,6 +22,7 @@ $ErrorActionPreference = "Stop"
 # ── Configuration ─────────────────────────────────────────────────────────────
 $REPO    = "chefgs/artifact-cleaner"
 $BINARY  = "artifact-cleaner"
+$SHORT_BINARY = "afc"
 $VERSION   = $env:VERSION    # empty = fetch latest
 $NO_VERIFY = $env:NO_VERIFY  # "1" = skip checksum
 
@@ -183,11 +184,12 @@ function Main {
     Info "Extracting..."
     Expand-Archive -Path $archive_path -DestinationPath $tmp_dir -Force
 
-    # Find the extracted binary
+    # Find both extracted CLI names. Release archives include both binaries.
     $extracted_binary = Get-ChildItem -Path $tmp_dir -Recurse -Filter "${BINARY}.exe" | Select-Object -First 1
+    $extracted_short_binary = Get-ChildItem -Path $tmp_dir -Recurse -Filter "${SHORT_BINARY}.exe" | Select-Object -First 1
 
-    if (-not $extracted_binary) {
-      Err "Could not find ${BINARY}.exe in extracted archive"
+    if (-not $extracted_binary -or -not $extracted_short_binary) {
+      Err "Could not find ${BINARY}.exe and ${SHORT_BINARY}.exe in extracted archive"
     }
 
     # Resolve install directory and create it if needed
@@ -195,12 +197,14 @@ function Main {
     New-Item -ItemType Directory -Path $install_dir -Force | Out-Null
 
     $binary_path = Join-Path $install_dir "${BINARY}.exe"
+    $short_binary_path = Join-Path $install_dir "${SHORT_BINARY}.exe"
 
-    # Install the binary
+    # Install both CLI names
     Copy-Item $extracted_binary.FullName $binary_path -Force
+    Copy-Item $extracted_short_binary.FullName $short_binary_path -Force
 
     Write-Host ""
-    Success "Installed to $binary_path"
+    Success "Installed $BINARY and $SHORT_BINARY to $install_dir"
 
     # Add install dir to user PATH if needed
     $added = Add-ToPath $install_dir
@@ -227,8 +231,14 @@ function Main {
 
     Write-Host ""
     Write-Host "  Quick start:" -ForegroundColor White
+    Write-Host "  Full CLI name:" -ForegroundColor White
     Write-Host "    $BINARY --help"
-    Write-Host "    $BINARY `$HOME\Documents\github --dry-run"
+    Write-Host "    $BINARY scan `$HOME\Documents\github --dry-run"
+    Write-Host ""
+    Write-Host "  Short alias (afc):" -ForegroundColor White
+    Write-Host "    $SHORT_BINARY --help"
+    Write-Host "    $SHORT_BINARY size `$HOME\Documents\github\my-project"
+    Write-Host "    $SHORT_BINARY mac-lib --dry-run"
     Write-Host ""
 
   } finally {

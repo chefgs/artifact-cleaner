@@ -1,7 +1,8 @@
 # Installation Guide
 
 Step-by-step instructions to download, install, and configure `artifact-cleaner`
-on macOS, Linux, and Windows.
+on macOS, Linux, and Windows. Every release includes both `artifact-cleaner`
+(the full CLI name) and `afc` (the short alias); they accept the same commands.
 
 ---
 
@@ -135,7 +136,8 @@ $env:NO_VERIFY="1"; irm .../install.ps1 | iex  # Windows
 
 ## Before you start — find the right binary
 
-Every release ships 6 binaries. Pick the one that matches your machine:
+Every release ships 6 platform archives. Each archive includes both CLI names.
+Pick the one that matches your machine:
 
 | Your machine | Binary to download |
 |-------------|-------------------|
@@ -210,11 +212,11 @@ artifact-cleaner-v1.0.0-aarch64-apple-darwin/
 The most common install location on macOS is `/usr/local/bin` — it is already in your PATH by default.
 
 ```bash
-# Move the binary (sudo required to write to /usr/local/bin)
-sudo mv artifact-cleaner-*/artifact-cleaner /usr/local/bin/
+# Move both CLI names (sudo required to write to /usr/local/bin)
+sudo mv artifact-cleaner-*/{artifact-cleaner,afc} /usr/local/bin/
 
 # Make sure it is executable (should already be, but just in case)
-sudo chmod +x /usr/local/bin/artifact-cleaner
+sudo chmod +x /usr/local/bin/{artifact-cleaner,afc}
 ```
 
 ### Step 4 — Handle Gatekeeper (macOS security prompt)
@@ -224,7 +226,7 @@ On first run you may see: *"artifact-cleaner cannot be opened because it is from
 
 **Fix — one-time approval via Terminal:**
 ```bash
-xattr -dr com.apple.quarantine /usr/local/bin/artifact-cleaner
+xattr -dr com.apple.quarantine /usr/local/bin/{artifact-cleaner,afc}
 ```
 
 This removes the quarantine flag that Gatekeeper adds when you download a file.
@@ -241,7 +243,7 @@ You only need to do this once.
 
 ```bash
 artifact-cleaner --version
-# artifact-cleaner 1.0.0
+# artifact-cleaner 0.12.0
 ```
 
 ### Optional — install to user bin (no sudo needed)
@@ -250,7 +252,7 @@ If you do not want to use `sudo`, install to `~/.local/bin` instead:
 
 ```bash
 mkdir -p ~/.local/bin
-mv artifact-cleaner-*/artifact-cleaner ~/.local/bin/
+mv artifact-cleaner-*/{artifact-cleaner,afc} ~/.local/bin/
 ```
 
 Then add `~/.local/bin` to your PATH. Add this line to `~/.zshrc` (zsh, default on macOS) or `~/.bashrc` (bash):
@@ -304,15 +306,15 @@ tar -xzf artifact-cleaner.tar.gz
 
 **System-wide install** (available to all users, requires sudo):
 ```bash
-sudo mv artifact-cleaner-*/artifact-cleaner /usr/local/bin/
-sudo chmod +x /usr/local/bin/artifact-cleaner
+sudo mv artifact-cleaner-*/{artifact-cleaner,afc} /usr/local/bin/
+sudo chmod +x /usr/local/bin/{artifact-cleaner,afc}
 ```
 
 **User install** (no sudo required, only for your user):
 ```bash
 mkdir -p ~/.local/bin
-mv artifact-cleaner-*/artifact-cleaner ~/.local/bin/
-chmod +x ~/.local/bin/artifact-cleaner
+mv artifact-cleaner-*/{artifact-cleaner,afc} ~/.local/bin/
+chmod +x ~/.local/bin/{artifact-cleaner,afc}
 ```
 
 If you chose the user install, add `~/.local/bin` to your PATH.
@@ -340,7 +342,7 @@ file /usr/local/bin/artifact-cleaner
 
 ```bash
 artifact-cleaner --version
-# artifact-cleaner 1.0.0
+# artifact-cleaner 0.12.0
 ```
 
 ### Package manager support (roadmap)
@@ -482,9 +484,9 @@ There are two ways — pick one.
 New-Item -ItemType Directory -Path "$HOME\bin" -Force
 ```
 
-2. Move the binary into it:
+2. Move both CLI names into it:
 ```powershell
-Move-Item "artifact-cleaner-*\artifact-cleaner.exe" "$HOME\bin\"
+Move-Item "artifact-cleaner-*\*.exe" "$HOME\bin\"
 ```
 
 3. Add `$HOME\bin` to your PATH permanently:
@@ -504,10 +506,10 @@ $currentPath = [Environment]::GetEnvironmentVariable("PATH", "User")
 
 **Method B — System-wide install (requires Administrator)**
 
-1. Move the binary to `C:\Windows\System32` (already in PATH for all users):
+1. Move both CLI names to `C:\Windows\System32` (already in PATH for all users):
 ```powershell
 # Run PowerShell as Administrator
-Move-Item "artifact-cleaner-*\artifact-cleaner.exe" "C:\Windows\System32\"
+Move-Item "artifact-cleaner-*\*.exe" "C:\Windows\System32\"
 ```
 
 > Note: writing to `System32` requires Administrator rights. Right-click PowerShell → "Run as administrator".
@@ -541,12 +543,15 @@ Unblock-File -Path "$HOME\bin\artifact-cleaner.exe"
 
 ### Step 6 — Verify
 
-Open a new PowerShell or Command Prompt window and run:
+Open a new PowerShell or Command Prompt window and run either CLI name:
 ```powershell
+# Full CLI name
 artifact-cleaner --version
-# artifact-cleaner 1.0.0
-
 artifact-cleaner --help
+
+# Short alias
+afc --version
+afc --help
 ```
 
 ---
@@ -577,8 +582,9 @@ cd artifact-cleaner
 # Build a release binary and install it to ~/.cargo/bin/ (already in PATH)
 cargo install --path .
 
-# Verify
+# Verify either CLI name
 artifact-cleaner --version
+afc --version
 ```
 
 `~/.cargo/bin` is added to your PATH automatically by the Rust installer.
@@ -588,20 +594,21 @@ On Windows it is `%USERPROFILE%\.cargo\bin`.
 
 ## Verify the installation
 
-Run these commands after installing to confirm everything works:
+Run these commands after installing to confirm everything works. The full CLI name
+and short alias accept identical commands:
 
 ```bash
-# Check the version
+# Full CLI name
 artifact-cleaner --version
-
-# Check the full help
 artifact-cleaner --help
-
-# Safe test — preview stale default artifact directories; nothing is deleted
 artifact-cleaner scan ~ --months 3 --dry-run
-
-# See examples and every option for a command
 artifact-cleaner scan --help
+
+# Short alias
+afc --version
+afc --help
+afc scan ~ --months 3 --dry-run
+afc scan --help
 ```
 
 `scan` and `size` accept extra artifact directory names through `--types`, for example:

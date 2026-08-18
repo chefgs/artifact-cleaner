@@ -48,7 +48,8 @@ files or filter project artifacts by a minimum size.
 
 Python virtual environments (.venv, venv, env) are always excluded.
 
-Run `afc <command> --help` for command-specific options and examples.
+`artifact-cleaner` and `afc` are interchangeable. Run either name with
+`<command> --help` for command-specific options and examples.
 "
 )]
 struct Cli {
@@ -74,7 +75,7 @@ enum Commands {
 
 #[derive(Args, Debug)]
 #[command(
-    after_help = "EXAMPLES:\n  afc scan ~/projects --dry-run\n  afc scan ~/projects --months 6 --types target,coverage,.gradle\n  afc scan . --types node_modules,.next --yes\n\nNOTES:\n  --types accepts comma-separated directory names only.\n  There is no minimum-size filter for workspace artifacts."
+    after_help = "EXAMPLES (full CLI name):\n  artifact-cleaner scan ~/projects --dry-run\n  artifact-cleaner scan ~/projects --months 6 --types target,coverage,.gradle\n\nSHORT ALIAS:\n  afc scan . --types node_modules,.next --yes\n\nNOTES:\n  artifact-cleaner and afc are interchangeable.\n  --types accepts comma-separated directory names only.\n  There is no minimum-size filter for workspace artifacts."
 )]
 struct ScanArgs {
     /// Workspace directory to scan (default: current directory)
@@ -109,7 +110,7 @@ struct ScanArgs {
 
 #[derive(Args, Debug)]
 #[command(
-    after_help = "EXAMPLES:\n  afc size\n  afc size ~/projects/my-app --types target,node_modules,coverage\n\nNOTES:\n  --types accepts directory names only; individual files are not reported."
+    after_help = "EXAMPLES (full CLI name):\n  artifact-cleaner size\n\nSHORT ALIAS:\n  afc size ~/projects/my-app --types target,node_modules,coverage\n\nNOTES:\n  artifact-cleaner and afc are interchangeable.\n  --types accepts directory names only; individual files are not reported."
 )]
 struct SizeArgs {
     /// Directory to inspect (default: current directory)
@@ -128,7 +129,7 @@ struct SizeArgs {
 
 #[derive(Args, Debug)]
 #[command(
-    after_help = "EXAMPLES:\n  afc mac-lib --dry-run\n  afc mac-lib --min-size 500 --dirs caches,containers\n\nNOTE:\n  --min-size is measured in MB and applies only to macOS Library entries,\n  not to the workspace artifacts selected by scan or size."
+    after_help = "EXAMPLES (full CLI name):\n  artifact-cleaner mac-lib --dry-run\n\nSHORT ALIAS:\n  afc mac-lib --min-size 500 --dirs caches,containers\n\nNOTE:\n  artifact-cleaner and afc are interchangeable.\n  --min-size is measured in MB and applies only to macOS Library entries,\n  not to the workspace artifacts selected by scan or size."
 )]
 pub struct MacLibArgs {
     /// Only flag items larger than this size in MB

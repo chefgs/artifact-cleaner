@@ -83,8 +83,8 @@ irm https://raw.githubusercontent.com/chefgs/artifact-cleaner/main/install.ps1 |
 curl -Lo artifact-cleaner.tar.gz \
   https://github.com/chefgs/artifact-cleaner/releases/latest/download/artifact-cleaner-latest-aarch64-apple-darwin.tar.gz
 tar -xzf artifact-cleaner.tar.gz
-sudo mv artifact-cleaner-*/artifact-cleaner /usr/local/bin/
-# First run: xattr -dr com.apple.quarantine /usr/local/bin/artifact-cleaner
+sudo mv artifact-cleaner-*/{artifact-cleaner,afc} /usr/local/bin/
+# First run: xattr -dr com.apple.quarantine /usr/local/bin/{artifact-cleaner,afc}
 ```
 
 **macOS (Intel):**
@@ -92,7 +92,7 @@ sudo mv artifact-cleaner-*/artifact-cleaner /usr/local/bin/
 curl -Lo artifact-cleaner.tar.gz \
   https://github.com/chefgs/artifact-cleaner/releases/latest/download/artifact-cleaner-latest-x86_64-apple-darwin.tar.gz
 tar -xzf artifact-cleaner.tar.gz
-sudo mv artifact-cleaner-*/artifact-cleaner /usr/local/bin/
+sudo mv artifact-cleaner-*/{artifact-cleaner,afc} /usr/local/bin/
 ```
 
 **Linux (x64 — static binary):**
@@ -100,7 +100,7 @@ sudo mv artifact-cleaner-*/artifact-cleaner /usr/local/bin/
 curl -Lo artifact-cleaner.tar.gz \
   https://github.com/chefgs/artifact-cleaner/releases/latest/download/artifact-cleaner-latest-x86_64-unknown-linux-musl.tar.gz
 tar -xzf artifact-cleaner.tar.gz
-sudo mv artifact-cleaner-*/artifact-cleaner /usr/local/bin/
+sudo mv artifact-cleaner-*/{artifact-cleaner,afc} /usr/local/bin/
 ```
 
 **Linux (ARM64 — static binary):**
@@ -108,7 +108,7 @@ sudo mv artifact-cleaner-*/artifact-cleaner /usr/local/bin/
 curl -Lo artifact-cleaner.tar.gz \
   https://github.com/chefgs/artifact-cleaner/releases/latest/download/artifact-cleaner-latest-aarch64-unknown-linux-musl.tar.gz
 tar -xzf artifact-cleaner.tar.gz
-sudo mv artifact-cleaner-*/artifact-cleaner /usr/local/bin/
+sudo mv artifact-cleaner-*/{artifact-cleaner,afc} /usr/local/bin/
 ```
 
 **Windows (x64 — PowerShell):**
@@ -117,7 +117,7 @@ Invoke-WebRequest `
   -Uri "https://github.com/chefgs/artifact-cleaner/releases/latest/download/artifact-cleaner-latest-x86_64-pc-windows-msvc.zip" `
   -OutFile "artifact-cleaner.zip"
 Expand-Archive -Path artifact-cleaner.zip -DestinationPath .
-# Move artifact-cleaner.exe to a folder in your PATH — see INSTALL.md
+# Move artifact-cleaner.exe and afc.exe to a folder in your PATH — see INSTALL.md
 ```
 
 **Windows (ARM64 — PowerShell):**
@@ -126,7 +126,7 @@ Invoke-WebRequest `
   -Uri "https://github.com/chefgs/artifact-cleaner/releases/latest/download/artifact-cleaner-latest-aarch64-pc-windows-msvc.zip" `
   -OutFile "artifact-cleaner.zip"
 Expand-Archive -Path artifact-cleaner.zip -DestinationPath .
-# Move artifact-cleaner.exe to a folder in your PATH — see INSTALL.md
+# Move artifact-cleaner.exe and afc.exe to a folder in your PATH — see INSTALL.md
 ```
 
 **Build from source (all platforms):**
@@ -134,14 +134,20 @@ Expand-Archive -Path artifact-cleaner.zip -DestinationPath .
 cargo install --path .
 ```
 
-Requires a current Rust toolchain with Cargo. The CLI version is sourced from `Cargo.toml`, so `artifact-cleaner --version` matches the package version for local builds too.
+Requires a current Rust toolchain with Cargo. The CLI version is sourced from `Cargo.toml`, so `artifact-cleaner --version` matches the package version for local builds too. Both `artifact-cleaner` (full CLI name) and `afc` (short alias) are installed and accept the same commands.
 
 ### Verify the install
 
+Full CLI name:
 ```bash
 artifact-cleaner --version
-afc --version
 artifact-cleaner --help
+```
+
+Short alias:
+```bash
+afc --version
+afc --help
 ```
 
 ## Build locally
@@ -168,7 +174,7 @@ cargo build --release
 
 ## Usage
 
-Both `artifact-cleaner` (full name) and `afc` (short alias) are installed and identical.
+Both `artifact-cleaner` (full name) and `afc` (short alias) are installed and identical; every command below works with either name.
 
 ### Scan workspace for stale build artifacts
 
@@ -252,7 +258,11 @@ afc mac-lib --yes
 ### Discover commands and options
 
 ```bash
-# General command reference
+# General command reference - Full CLI name
+artifact-cleaner --help
+artifact-cleaner scan --help
+
+# Short alias (the same commands and options)
 afc --help
 
 # Command-specific options and examples
