@@ -68,6 +68,28 @@ jobs:
           fi
           echo "Version '${{ github.event.inputs.version }}' is valid."
 
+  prepare-release:
+    name: Prepare GitHub release
+    needs: [validate-version]
+    if: needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped'
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - name: Ensure release exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "${{ env.RELEASE_VERSION }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "Release ${{ env.RELEASE_VERSION }} already exists."
+          else
+            gh release create "${{ env.RELEASE_VERSION }}" \
+              --repo "${{ github.repository }}" \
+              --target "$GITHUB_SHA" \
+              --title "${{ env.RELEASE_VERSION }}" \
+              --generate-notes
+          fi
+
   # ── macOS ────────────────────────────────────────────────────────────────────
   # WHY macOS runner for macOS targets?
   # Apple requires binaries to be compiled ON macOS (or with Apple's SDK).
@@ -77,8 +99,8 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-macos:
     name: macOS — ${{ matrix.target }}
-    needs: [validate-version]
-    if: success() || needs.validate-version.result == 'skipped'
+    needs: [validate-version, prepare-release]
+    if: needs.prepare-release.result == 'success' && (needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped')
     runs-on: macos-14           # Apple Silicon runner (M1) — free on GitHub Actions
     permissions:
       contents: write
@@ -138,13 +160,9 @@ jobs:
 
       # Step 6 — Upload archive + checksum file to GitHub Release
       - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.RELEASE_VERSION }}
-          generate_release_notes: true
-          files: |
-            ${{ env.ASSET }}
-            ${{ env.ASSET_SHA }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ env.RELEASE_VERSION }}" "${{ env.ASSET }}" "${{ env.ASSET_SHA }}" --clobber --repo "${{ github.repository }}"
 
 
   # ── Linux ────────────────────────────────────────────────────────────────────
@@ -165,8 +183,8 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-linux:
     name: Linux — ${{ matrix.target }}
-    needs: [validate-version]
-    if: success() || needs.validate-version.result == 'skipped'
+    needs: [validate-version, prepare-release]
+    if: needs.prepare-release.result == 'success' && (needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped')
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -226,13 +244,9 @@ jobs:
           echo "ASSET_SHA=$RELEASE_DIR.tar.gz.sha256" >> $GITHUB_ENV
 
       - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.RELEASE_VERSION }}
-          generate_release_notes: true
-          files: |
-            ${{ env.ASSET }}
-            ${{ env.ASSET_SHA }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ env.RELEASE_VERSION }}" "${{ env.ASSET }}" "${{ env.ASSET_SHA }}" --clobber --repo "${{ github.repository }}"
 
 
   # ── Windows ──────────────────────────────────────────────────────────────────
@@ -257,8 +271,8 @@ jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   build-windows:
     name: Windows — ${{ matrix.target }}
-    needs: [validate-version]
-    if: success() || needs.validate-version.result == 'skipped'
+    needs: [validate-version, prepare-release]
+    if: needs.prepare-release.result == 'success' && (needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped')
     runs-on: windows-latest
     permissions:
       contents: write
@@ -304,13 +318,9 @@ jobs:
           echo "ASSET_SHA=$RELEASE_DIR.zip.sha256" | Out-File -Append $env:GITHUB_ENV
 
       - name: Upload to GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.RELEASE_VERSION }}
-          generate_release_notes: true
-          files: |
-            ${{ env.ASSET }}
-            ${{ env.ASSET_SHA }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ env.RELEASE_VERSION }}" "${{ env.ASSET }}" "${{ env.ASSET_SHA }}" --clobber --repo "${{ github.repository }}"
 
 
   # ── Merge all checksums into one checksums.txt ───────────────────────────────
@@ -346,11 +356,9 @@ jobs:
           cat checksums.txt
 
       - name: Upload checksums.txt to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ env.RELEASE_VERSION }}
-          generate_release_notes: true
-          files: checksums.txt
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release upload "${{ env.RELEASE_VERSION }}" checksums.txt --clobber --repo "${{ github.repository }}"
 
   # ── Gate job — confirms everything succeeded ──────────────────────────────────
   release-complete:
