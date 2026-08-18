@@ -10,21 +10,7 @@ A Rust-based CLI tool for scanning and cleaning stale project artifacts. By defa
 
 This project is also used as a practical Rust learning project for Go, Python, and Java developers.
 
-Built in Rust. Single binary. No dependencies.
-
-## Platform support
-
-The project began on macOS, but the workspace cleanup commands are supported on macOS, Linux, and Windows. This is why releases include native installers and binaries for all three operating systems.
-
-| Command | macOS | Linux | Windows |
-|---|---:|---:|---:|
-| `scan` — find and remove stale project artifacts | Yes | Yes | Yes |
-| `size` — report artifact directory sizes | Yes | Yes | Yes |
-| `mac-lib` — inspect orphaned `~/Library` app data | Yes | No | No |
-
-`scan` and `size` use portable filesystem APIs and match directory names inside the workspace supplied by the user, so their cleanup behavior is not tied to macOS. `mac-lib` deliberately uses macOS Library locations and macOS tools; on Linux and Windows it is present in the CLI for consistency but exits without scanning or deleting anything.
-
-Windows and Linux currently do not have equivalents of `mac-lib` for system or user cache cleanup. Their installers are for the cross-platform project-artifact cleanup commands above.
+CLI Built using Rust. Single binary. No dependencies.
 
 ![Artifact Cleaner CLI cleaning development artifacts and reclaiming storage](assets/repo-image.png)
 
@@ -40,6 +26,24 @@ Windows and Linux currently do not have equivalents of `mac-lib` for system or u
 The tool always shows what it found before deleting anything. By default, destructive cleanup requires an interactive confirmation prompt, and `--dry-run` previews what would be deleted without removing files.
 
 For workspace scans, deletion without a prompt requires the explicit `--yes` flag. For `mac-lib`, the orphaned list is always shown and deletion still requires interactive confirmation.
+
+---
+
+## Platform support
+
+The project began on macOS, but the workspace cleanup commands are supported on macOS, Linux, and Windows. This is why releases include native installers and binaries for all three operating systems.
+
+| Command | macOS | Linux | Windows |
+|---|---:|---:|---:|
+| `scan` — find and remove stale project artifacts | Yes | Yes | Yes |
+| `size` — report artifact directory sizes | Yes | Yes | Yes |
+| `mac-lib` — inspect orphaned `~/Library` app data | Yes | No | No |
+
+`scan` and `size` use portable filesystem APIs and match directory names inside the workspace supplied by the user, so their cleanup behavior is not tied to macOS. `mac-lib` deliberately uses macOS Library locations and macOS tools; on Linux and Windows it is present in the CLI for consistency but exits without scanning or deleting anything.
+
+Windows and Linux currently do not have equivalents of `mac-lib` for system or user cache cleanup. Their installers are for the cross-platform project-artifact cleanup commands above.
+
+---
 
 ## Install
 
