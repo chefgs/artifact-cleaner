@@ -7,6 +7,10 @@
 # Reads the .sha256 files attached to the GitHub release v<version> of this repo.
 # BASE_URL can point elsewhere (e.g. file:///path/to/assets) for testing.
 # Logs go to stderr; set QUIET=1 to silence them.
+#
+# Requires: curl, awk. Network access to github.com (each download times out at 30s).
+# Before pushing the result, run `brew style <file>`; after pushing, see RELEASING.md.
+# Background: docs/HOMEBREW.md
 set -euo pipefail
 
 log() { [[ "${QUIET:-0}" == "1" ]] || printf '[generate-formula] %s\n' "$*" >&2; }
