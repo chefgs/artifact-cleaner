@@ -337,6 +337,7 @@ jobs:
   checksums:
     name: Generate checksums.txt
     needs: [build-macos, build-linux, build-windows]
+    if: ${{ !cancelled() && needs.build-macos.result == 'success' && needs.build-linux.result == 'success' && needs.build-windows.result == 'success' }}
     runs-on: ubuntu-22.04
     permissions:
       contents: write   # needed to upload to the release
@@ -365,6 +366,7 @@ jobs:
   release-complete:
     name: Release complete
     needs: [checksums]
+    if: ${{ !cancelled() && needs.checksums.result == 'success' }}
     runs-on: ubuntu-22.04
     steps:
       - name: All platforms built successfully
