@@ -71,7 +71,7 @@ jobs:
   prepare-release:
     name: Prepare GitHub release
     needs: [validate-version]
-    if: needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped'
+    if: ${{ !cancelled() && (needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped') }}
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -100,7 +100,7 @@ jobs:
   build-macos:
     name: macOS — ${{ matrix.target }}
     needs: [validate-version, prepare-release]
-    if: needs.prepare-release.result == 'success' && (needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped')
+    if: ${{ !cancelled() && needs.prepare-release.result == 'success' && (needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped') }}
     runs-on: macos-14           # Apple Silicon runner (M1) — free on GitHub Actions
     permissions:
       contents: write
@@ -184,7 +184,7 @@ jobs:
   build-linux:
     name: Linux — ${{ matrix.target }}
     needs: [validate-version, prepare-release]
-    if: needs.prepare-release.result == 'success' && (needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped')
+    if: ${{ !cancelled() && needs.prepare-release.result == 'success' && (needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped') }}
     runs-on: ubuntu-22.04
     permissions:
       contents: write
@@ -272,7 +272,7 @@ jobs:
   build-windows:
     name: Windows — ${{ matrix.target }}
     needs: [validate-version, prepare-release]
-    if: needs.prepare-release.result == 'success' && (needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped')
+    if: ${{ !cancelled() && needs.prepare-release.result == 'success' && (needs.validate-version.result == 'success' || needs.validate-version.result == 'skipped') }}
     runs-on: windows-latest
     permissions:
       contents: write
