@@ -11,7 +11,7 @@
 # What this script does:
 #   1. Detects your CPU architecture (x64 or ARM64)
 #   2. Picks the correct binary for your machine
-#   3. Downloads the binary .zip and checksums.txt from GitHub Releases
+#   3. Downloads the binary .zip and checksums.txt (or the archive's .sha256) from GitHub Releases
 #   4. Verifies the SHA256 checksum — aborts if it does not match
 #   5. Extracts artifact-cleaner.exe and installs it to your PATH
 #   6. Verifies the installed binary runs correctly
@@ -175,7 +175,14 @@ function Main {
 
     # Download archive and checksums
     Download-File "$base_url/$archive_name" $archive_path
-    Download-File "$base_url/checksums.txt" $checksums_path
+    # Prefer checksums.txt; fall back to the archive's own .sha256 file (same
+    # "<hash>  <filename>" format) so a release without checksums.txt still verifies.
+    try {
+      Download-File "$base_url/checksums.txt" $checksums_path
+    } catch {
+      Warn "checksums.txt not found; using $archive_name.sha256"
+      Download-File "$base_url/$archive_name.sha256" $checksums_path
+    }
 
     # Verify integrity
     Verify-Checksum $archive_path $checksums_path
