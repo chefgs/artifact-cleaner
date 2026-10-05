@@ -28,29 +28,90 @@ use std::path::PathBuf;
 // bool fields with `default_value_t = false` = --flag switches.
 // Vec<String> = accepts multiple values: --types node_modules .next dist
 // ─────────────────────────────────────────────────────────────────────────────
+// ─── User-facing help text ───────────────────────────────────────────────────
+// Shown at the bottom of `afc --help`. Plain consts keep the layout readable
+// and make it easy to keep examples in sync with the real flags.
+// ─────────────────────────────────────────────────────────────────────────────
+const QUICKSTART: &str = "\
+QUICK START (safe, nothing is deleted until you confirm):
+  afc size .                    # 1. how big are the artifacts in this project?
+  afc scan ~/projects --dry-run # 2. preview stale artifacts across a workspace
+  afc scan ~/projects           # 3. review the list, then answer y/N to delete
+  afc mac-lib --dry-run         # (macOS) preview orphaned Library data
+
+COMMON TASKS:
+  Free space across all projects      afc scan ~/projects
+  Only look, never delete             afc scan ~/projects --dry-run
+  Be more or less aggressive          afc scan ~/projects --months 6
+  Clean other folders too             afc scan . --types target,coverage,.gradle
+  Script / CI use (no prompt)         afc scan . --yes
+  Report only, no prompt              afc scan . --no-interactive
+  Large macOS Library leftovers       afc mac-lib --min-size 500
+
+GOOD TO KNOW:
+  - A project is \"stale\" when it has not changed in --months months (default 2).
+  - Default targets: node_modules, .next, dist, build, .terraform.
+  - Python virtual environments (.venv, venv, env) are always skipped.
+  - `afc` and `artifact-cleaner` are the same program.
+
+Run `afc <command> --help` for details and examples.";
+
+const SCAN_HELP: &str = "\
+WHAT IT DOES:
+  Walks the workspace, finds artifact folders (node_modules, dist, ...) inside
+  projects that have not been updated recently, shows their sizes, and asks
+  before deleting.
+
+EXAMPLES:
+  afc scan ~/projects --dry-run                  preview only, deletes nothing
+  afc scan ~/projects                            review, then confirm [y/N]
+  afc scan ~/projects --months 6                 only projects idle for 6+ months
+  afc scan . --types target,coverage,.gradle     choose which folders to target
+  afc scan . --types node_modules,.next --yes    no prompt (scripts, CI)
+  afc scan . --no-interactive                    list results, never prompt
+
+NOTES:
+  Run with --dry-run first. Deletion cannot be undone.
+  --types takes directory names only, comma-separated. There is no size filter.";
+
+const SIZE_HELP: &str = "\
+WHAT IT DOES:
+  Reports the size of artifact folders directly under one project. Read-only:
+  it never deletes and ignores how recently the project changed.
+
+EXAMPLES:
+  afc size                                       current directory
+  afc size ~/projects/my-app                     a specific project
+  afc size . --types target,node_modules,coverage
+
+NOTES:
+  --types takes directory names only; individual files are not reported.";
+
+const MAC_LIB_HELP: &str = "\
+WHAT IT DOES:
+  (macOS only) Looks in ~/Library for caches, containers and group data left
+  behind by apps that are no longer installed, and offers to remove them.
+  Oversized caches of apps that ARE installed are shown as caution items only.
+
+EXAMPLES:
+  afc mac-lib --dry-run                          preview only, deletes nothing
+  afc mac-lib                                    review, then confirm
+  afc mac-lib --min-size 500                     only items larger than 500 MB
+  afc mac-lib --dirs caches,containers           limit which folders are checked
+
+NOTES:
+  --min-size is in MB and applies only to Library entries, not to scan/size.
+  It always asks for confirmation before deleting; --yes is accepted for
+  compatibility but does not skip the prompt.";
+
 #[derive(Parser, Debug)]
 #[command(
     name = env!("CARGO_BIN_NAME"),
-    about = "Reclaim disk space — remove stale build artifacts and unused macOS Library data",
+    about = "Reclaim disk space: remove stale build artifacts and unused macOS Library data",
     version = env!("CARGO_PKG_VERSION"),
-    long_about = "
-Scans a workspace directory for stale build artifact folders
-(node_modules, .next, dist, build, .terraform) and removes them
-from projects that haven't been updated within a configurable threshold.
-
-Use `size` inside a project to inspect current artifact folder sizes
-without stale filtering or deletion prompts.
-
-Use `--types` with a comma-separated list to target additional directory
-names, such as target, coverage, .gradle, or __pycache__.
-`scan` and `size` match directories only; they do not select individual
-files or filter project artifacts by a minimum size.
-
-Python virtual environments (.venv, venv, env) are always excluded.
-
-`artifact-cleaner` and `afc` are interchangeable. Run either name with
-`<command> --help` for command-specific options and examples.
-"
+    arg_required_else_help = true,
+    after_help = QUICKSTART,
+    after_long_help = QUICKSTART
 )]
 struct Cli {
     #[command(subcommand)]
@@ -74,9 +135,7 @@ enum Commands {
 }
 
 #[derive(Args, Debug)]
-#[command(
-    after_help = "EXAMPLES (full CLI name):\n  artifact-cleaner scan ~/projects --dry-run\n  artifact-cleaner scan ~/projects --months 6 --types target,coverage,.gradle\n\nSHORT ALIAS:\n  afc scan . --types node_modules,.next --yes\n\nNOTES:\n  artifact-cleaner and afc are interchangeable.\n  --types accepts comma-separated directory names only.\n  There is no minimum-size filter for workspace artifacts."
-)]
+#[command(after_long_help = SCAN_HELP, after_help = SCAN_HELP)]
 struct ScanArgs {
     /// Workspace directory to scan (default: current directory)
     #[arg(default_value = ".")]
@@ -109,9 +168,7 @@ struct ScanArgs {
 }
 
 #[derive(Args, Debug)]
-#[command(
-    after_help = "EXAMPLES (full CLI name):\n  artifact-cleaner size\n\nSHORT ALIAS:\n  afc size ~/projects/my-app --types target,node_modules,coverage\n\nNOTES:\n  artifact-cleaner and afc are interchangeable.\n  --types accepts directory names only; individual files are not reported."
-)]
+#[command(after_long_help = SIZE_HELP, after_help = SIZE_HELP)]
 struct SizeArgs {
     /// Directory to inspect (default: current directory)
     #[arg(default_value = ".")]
@@ -128,9 +185,7 @@ struct SizeArgs {
 }
 
 #[derive(Args, Debug)]
-#[command(
-    after_help = "EXAMPLES (full CLI name):\n  artifact-cleaner mac-lib --dry-run\n\nSHORT ALIAS:\n  afc mac-lib --min-size 500 --dirs caches,containers\n\nNOTE:\n  artifact-cleaner and afc are interchangeable.\n  --min-size is measured in MB and applies only to macOS Library entries,\n  not to the workspace artifacts selected by scan or size."
-)]
+#[command(after_long_help = MAC_LIB_HELP, after_help = MAC_LIB_HELP)]
 pub struct MacLibArgs {
     /// Only flag items larger than this size in MB
     #[arg(long, default_value_t = 100)]
