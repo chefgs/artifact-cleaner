@@ -1,10 +1,12 @@
 [package]
 name = "artifact-cleaner"
-version = "0.12.0"
+version = "0.13.0"
 edition = "2024"
 description = "A CLI tool to find and remove stale build artifacts (node_modules, .next, dist, build, .terraform)"
 authors = ["Saravanan G"]
 license = "MIT"
+repository = "https://github.com/chefgs/artifact-cleaner"
+homepage = "https://github.com/chefgs/artifact-cleaner"
 
 [[bin]]
 name = "artifact-cleaner"

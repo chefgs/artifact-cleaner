@@ -152,7 +152,7 @@ jobs:
           mkdir -p "$RELEASE_DIR"
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} "$RELEASE_DIR/"
           cp target/${{ matrix.target }}/release/${{ env.BINARY_SHORT }} "$RELEASE_DIR/"
-          cp README.md "$RELEASE_DIR/" 2>/dev/null || true
+          cp README.md LICENSE "$RELEASE_DIR/" 2>/dev/null || true
           tar -czf "$RELEASE_DIR.tar.gz" "$RELEASE_DIR"
           shasum -a 256 "$RELEASE_DIR.tar.gz" > "$RELEASE_DIR.tar.gz.sha256"
           echo "ASSET=$RELEASE_DIR.tar.gz" >> $GITHUB_ENV
@@ -237,7 +237,7 @@ jobs:
           mkdir -p "$RELEASE_DIR"
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }} "$RELEASE_DIR/"
           cp target/${{ matrix.target }}/release/${{ env.BINARY_SHORT }} "$RELEASE_DIR/"
-          cp README.md "$RELEASE_DIR/" 2>/dev/null || true
+          cp README.md LICENSE "$RELEASE_DIR/" 2>/dev/null || true
           tar -czf "$RELEASE_DIR.tar.gz" "$RELEASE_DIR"
           sha256sum "$RELEASE_DIR.tar.gz" > "$RELEASE_DIR.tar.gz.sha256"
           echo "ASSET=$RELEASE_DIR.tar.gz" >> $GITHUB_ENV
@@ -310,6 +310,7 @@ jobs:
           Copy-Item "target\${{ matrix.target }}\release\${{ env.BINARY_NAME }}.exe" $RELEASE_DIR\
           Copy-Item "target\${{ matrix.target }}\release\${{ env.BINARY_SHORT }}.exe" $RELEASE_DIR\
           if (Test-Path "README.md") { Copy-Item "README.md" $RELEASE_DIR\ }
+          if (Test-Path "LICENSE") { Copy-Item "LICENSE" $RELEASE_DIR\ }
           Compress-Archive -Path $RELEASE_DIR -DestinationPath "$RELEASE_DIR.zip"
           # Generate SHA256 — output format matches sha256sum on Linux for consistency
           $hash = (Get-FileHash "$RELEASE_DIR.zip" -Algorithm SHA256).Hash.ToLower()
