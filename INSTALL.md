@@ -22,7 +22,22 @@ For project cleanup on any platform, `scan` defaults to `node_modules`, `.next`,
 
 ---
 
-## One-liner install (recommended)
+## Homebrew (macOS and Linux)
+
+```bash
+brew install cloudengine-labs/tap/artifact-cleaner
+afc --version
+```
+
+This installs both `artifact-cleaner` and `afc`. Upgrade with `brew upgrade artifact-cleaner`, remove with `brew uninstall artifact-cleaner`.
+
+- If Homebrew says the tap is untrusted, run `brew trust cloudengine-labs/tap` and retry.
+- If `afc --version` shows an older version, another copy is earlier on your `PATH` (for example `~/.cargo/bin` from `cargo install`, or `~/.local/bin` from the install script). Run `which -a afc`, remove the stale copy, then `hash -r`.
+- How the tap is built and maintained: [docs/HOMEBREW.md](./docs/HOMEBREW.md).
+
+---
+
+## One-liner install
 
 The install scripts automatically detect your OS and CPU architecture, download
 the correct binary, **verify the SHA256 checksum**, and add the binary to your PATH.
@@ -122,7 +137,8 @@ $env:NO_VERIFY="1"; irm .../install.ps1 | iex  # Windows
 
 ## Table of Contents
 
-- [One-liner install](#one-liner-install-recommended)
+- [Homebrew](#homebrew-macos-and-linux)
+- [One-liner install](#one-liner-install)
 - [About SHA256 verification](#about-sha256-verification)
 - [Before you start — find the right binary](#before-you-start--find-the-right-binary)
 - [macOS — manual install](#macos)

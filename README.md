@@ -54,6 +54,7 @@ brew install cloudengine-labs/tap/artifact-cleaner
 ```
 
 Installs both `artifact-cleaner` and `afc`. If Homebrew reports the tap as untrusted, run `brew trust cloudengine-labs/tap`.
+See [docs/HOMEBREW.md](./docs/HOMEBREW.md) for how the tap is built.
 
 ### One-liner
 
