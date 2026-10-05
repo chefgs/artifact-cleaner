@@ -47,7 +47,15 @@ Windows and Linux currently do not have equivalents of `mac-lib` for system or u
 
 ## Install
 
-### One-liner (recommended)
+### Homebrew (macOS and Linux)
+
+```sh
+brew install cloudengine-labs/tap/artifact-cleaner
+```
+
+Installs both `artifact-cleaner` and `afc`. If Homebrew reports the tap as untrusted, run `brew trust cloudengine-labs/tap`.
+
+### One-liner
 
 The install scripts detect your OS and CPU architecture, download the matching release artifact, verify SHA256 checksums, install the binary into your `PATH`, and verify the binary runs.
 
